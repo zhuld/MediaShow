@@ -12,10 +12,12 @@
     <Grid>
         <Canvas x:Name="LayoutCanvas" Background="Black"/>
 
-        <StatusBar VerticalAlignment="Bottom"
+        <StatusBar x:Name="ModeStatusBar"
+                   VerticalAlignment="Bottom"
                    Background="#7F000000"
                    Foreground="White"
-                   Padding="6,2">
+                   Padding="6,2"
+                   Visibility="Collapsed">
             <TextBlock x:Name="StatusText"
                        Text="正在启动..."
                        VerticalAlignment="Center" />

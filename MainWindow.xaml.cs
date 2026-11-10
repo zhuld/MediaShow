@@ -22,13 +22,19 @@ namespace CameraShow
 
         private readonly Dictionary<string, CameraService> _cameraServices = new();
         private readonly Dictionary<ViewItem, Controls.CameraView> _cameraViews = new();
+        private readonly DispatcherTimer _statusTimer = new()
+        {
+            Interval = TimeSpan.FromSeconds(5)
+        };
         private volatile bool _isShuttingDown;
         private bool _allowClose;
         private HwndSource? _windowSource;
+        private string _currentModeName = string.Empty;
 
         public MainWindow()
         {
             InitializeComponent();
+            _statusTimer.Tick += StatusTimer_Tick;
 
             LoggerService.Info("主窗口构造开始...");
 
@@ -46,7 +52,6 @@ namespace CameraShow
                     svc.ErrorOccurred += err =>
                     {
                         LoggerService.Error($"摄像头{cam.Name} 运行错误：{err}");
-                        DispatchToUi(() => UpdateStatus($"摄像头{cam.Name} 错误：{err}"));
                     };
                     _cameraServices[cam.Id] = svc;
                     LoggerService.Info($"摄像头服务已创建：{cam.Id} ({cam.Name}, {cam.Width}x{cam.Height})");
@@ -54,7 +59,6 @@ namespace CameraShow
                 catch (Exception ex)
                 {
                     LoggerService.Error($"摄像头{cam.Name} 创建失败", ex);
-                    UpdateStatus($"摄像头{cam.Name} 创建失败：{ex.Message}");
                 }
             }
 
@@ -63,7 +67,8 @@ namespace CameraShow
             {
                 DispatchToUi(() =>
                 {
-                    UpdateStatus($"网络指令：已切换到模式 {mode}");
+                    _currentModeName = mode.ToString();
+                    ShowModeStatus(_currentModeName);
                     LoggerService.Info($"网络指令切换布局：{mode}");
                 });
             };
@@ -71,12 +76,10 @@ namespace CameraShow
             try
             {
                 _udpService.Start();
-                UpdateStatus($"UDP 监听端口 {_config.UdpPort}，计算机名：{_config.PcName}");
             }
             catch (Exception ex)
             {
                 LoggerService.Error("UDP 服务启动失败", ex);
-                UpdateStatus($"UDP 启动失败：{ex.Message}");
             }
 
             LoggerService.Info("主窗口构造完成");
@@ -124,11 +127,10 @@ namespace CameraShow
                 catch (Exception ex)
                 {
                     LoggerService.Error($"摄像头{kvp.Key} 启动失败", ex);
-                    UpdateStatus($"摄像头{kvp.Key} 启动失败：{ex.Message}");
                 }
             }
 
-            UpdateStatus($"布局完成，共 {_cameraViews.Count} 个显示窗口");
+            ShowModeStatus(_currentModeName);
             LoggerService.Info("主窗口加载完成");
         }
 
@@ -150,7 +152,7 @@ namespace CameraShow
 
             _isShuttingDown = true;
             IsEnabled = false;
-            UpdateStatus("正在停止摄像头和网络服务...");
+            _statusTimer.Stop();
 
             await Task.Run(() =>
             {
@@ -228,6 +230,7 @@ namespace CameraShow
                 return;
             }
 
+            _currentModeName = group.Mode;
             double canvasW = LayoutCanvas.ActualWidth;
             double canvasH = LayoutCanvas.ActualHeight;
             var dpi = VisualTreeHelper.GetDpi(this);
@@ -305,9 +308,20 @@ namespace CameraShow
             return camView;
         }
 
-        private void UpdateStatus(string msg)
+        private void ShowModeStatus(string modeName)
         {
-            StatusText.Text = msg;
+            if (string.IsNullOrWhiteSpace(modeName) || _isShuttingDown) return;
+
+            StatusText.Text = modeName;
+            ModeStatusBar.Visibility = Visibility.Visible;
+            _statusTimer.Stop();
+            _statusTimer.Start();
+        }
+
+        private void StatusTimer_Tick(object? sender, EventArgs e)
+        {
+            _statusTimer.Stop();
+            ModeStatusBar.Visibility = Visibility.Collapsed;
         }
 
         /// <summary>

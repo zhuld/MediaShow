@@ -99,6 +99,14 @@ namespace CameraShow.Services
                         // UdpClient 已被关闭，正常退出
                         break;
                     }
+                    catch (NullReferenceException ex)
+                    {
+                        if (!_running) break;
+
+                        LoggerService.Error("UDP 接收异常", ex);
+                        _running = false;
+                        break;
+                    }
                     catch (SocketException)
                     {
                         if (!_running) break;
@@ -115,7 +123,7 @@ namespace CameraShow.Services
             catch (Exception ex)
             {
                 LoggerService.Error("UDP 监听异常", ex);
-                throw;
+                _running = false;
             }
         }
 
