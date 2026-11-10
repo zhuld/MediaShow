@@ -13,6 +13,9 @@ namespace CameraShow.Services
 
         public AppConfig Config { get; private set; } = new();
 
+        /// <summary>配置文件完整路径</summary>
+        public string ConfigPath => _configPath;
+
         public ConfigService(string configPath = "config.json")
         {
             _configPath = Path.GetFullPath(configPath);

@@ -20,7 +20,7 @@ namespace CameraShow
     {
         private readonly ConfigService _configService;
         private readonly AppConfig _config;
-        private readonly UdpControlService _udpService;
+        private UdpControlService _udpService;
 
         private readonly Dictionary<string, CameraService> _cameraServices = new();
         private readonly Dictionary<ViewItem, Controls.CameraView> _cameraViews = new();
@@ -81,16 +81,7 @@ namespace CameraShow
                 }
             }
 
-            _udpService = new UdpControlService(_config.PcName, _config.UdpPort);
-            _udpService.ModeChanged += modeName =>
-            {
-                DispatchToUi(() =>
-                {
-                    ApplyViewsLayout(modeName);
-                    ShowModeStatus(_currentModeName);
-                    LoggerService.Info($"网络指令切换布局：{modeName}");
-                });
-            };
+            _udpService = CreateUdpService();
 
             try
             {
@@ -104,12 +95,31 @@ namespace CameraShow
             LoggerService.Info("主窗口构造完成");
         }
 
+        /// <summary>
+        /// 创建 UDP 控制服务并订阅模式切换事件（设置变更后需要重建服务）
+        /// </summary>
+        private UdpControlService CreateUdpService()
+        {
+            var service = new UdpControlService(_config.PcName, _config.UdpPort);
+            service.ModeChanged += modeName =>
+            {
+                DispatchToUi(() =>
+                {
+                    ApplyViewsLayout(modeName);
+                    ShowModeStatus(_currentModeName);
+                    LoggerService.Info($"网络指令切换布局：{modeName}");
+                });
+            };
+            return service;
+        }
+
         private void SubscribeTrayEvents()
         {
             TrayIconManager.ModeSelected += OnTrayModeSelected;
             TrayIconManager.BlankRequested += OnTrayBlankRequested;
             TrayIconManager.DesktopRequested += OnTrayDesktopRequested;
             TrayIconManager.ShutdownRequested += OnTrayShutdownRequested;
+            TrayIconManager.SettingsRequested += OnTraySettingsRequested;
             TrayIconManager.ExitRequested += OnTrayExitRequested;
             TrayIconManager.RestoreRequested += OnTrayRestoreRequested;
         }
@@ -120,6 +130,7 @@ namespace CameraShow
             TrayIconManager.BlankRequested -= OnTrayBlankRequested;
             TrayIconManager.DesktopRequested -= OnTrayDesktopRequested;
             TrayIconManager.ShutdownRequested -= OnTrayShutdownRequested;
+            TrayIconManager.SettingsRequested -= OnTraySettingsRequested;
             TrayIconManager.ExitRequested -= OnTrayExitRequested;
             TrayIconManager.RestoreRequested -= OnTrayRestoreRequested;
         }
@@ -175,6 +186,127 @@ namespace CameraShow
             LoggerService.Info("手动切换模式：Shutdown");
         }
 
+        private void OnTraySettingsRequested()
+        {
+            if (_isShuttingDown) return;
+
+            // 等托盘菜单关闭后再弹出模态对话框，避免在菜单点击回调里直接打开窗口
+            Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(ShowSettingsWindow));
+        }
+
+        private void ShowSettingsWindow()
+        {
+            if (_isShuttingDown) return;
+
+            try
+            {
+                var dialog = new SettingsWindow(_config, _configService.ConfigPath);
+
+                // 主窗口处于最小化（Desktop 模式）时不能作为拥有者，否则对话框可能被隐藏
+                if (IsVisible && WindowState != WindowState.Minimized)
+                {
+                    dialog.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+                    dialog.Owner = this;
+                }
+
+                if (dialog.ShowDialog() == true && dialog.ResultConfig != null)
+                {
+                    ApplySettings(dialog.ResultConfig);
+                }
+            }
+            catch (Exception ex)
+            {
+                LoggerService.Error("设置窗口打开或应用设置失败", ex);
+            }
+        }
+
+        /// <summary>
+        /// 将设置对话框返回的配置合并到运行中的配置对象，并立即生效
+        /// </summary>
+        private void ApplySettings(AppConfig updated)
+        {
+            var udpChanged = !string.Equals(_config.PcName, updated.PcName, StringComparison.Ordinal)
+                             || _config.UdpPort != updated.UdpPort;
+            var previousMode = _currentModeName;
+
+            _config.PcName = updated.PcName;
+            _config.UdpPort = updated.UdpPort;
+            _config.DefaultMode = updated.DefaultMode;
+            _config.WindowWidth = updated.WindowWidth;
+            _config.WindowHeight = updated.WindowHeight;
+            _config.Modes = updated.Modes;
+
+            if (!_configService.Save(_config))
+            {
+                LoggerService.Error("保存设置到 config.json 失败");
+                System.Windows.MessageBox.Show(
+                    "设置已应用，但写入 config.json 失败，请查看 Logs 文件夹中的日志了解详情。",
+                    "CameraShow",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
+
+            TrayIconManager.ReloadConfig(_config);
+
+            if (udpChanged)
+            {
+                RestartUdpService();
+            }
+
+            if (WindowState == WindowState.Minimized)
+            {
+                // Desktop 模式（窗口最小化）下不改动窗口状态，尺寸与布局在恢复显示时再应用
+                LoggerService.Info("窗口当前处于最小化（Desktop）状态，尺寸与布局将在恢复显示时应用");
+            }
+            else
+            {
+                ApplyWindowSizeFromConfig();
+
+                // 尽量保持当前显示的画面：Blank 保持黑屏，其他模式被删除时回退到默认模式
+                string targetMode;
+                if (string.Equals(previousMode, BlankModeName, StringComparison.OrdinalIgnoreCase))
+                {
+                    targetMode = BlankModeName;
+                }
+                else if (_config.Modes.Any(mode => string.Equals(mode.Mode, previousMode, StringComparison.OrdinalIgnoreCase)))
+                {
+                    targetMode = previousMode;
+                }
+                else
+                {
+                    targetMode = _config.DefaultMode;
+                }
+
+                ApplyViewsLayout(targetMode);
+            }
+
+            LoggerService.Info($"设置已保存并应用：PcName={_config.PcName}, UdpPort={_config.UdpPort}, DefaultMode={_config.DefaultMode}, 模式数={_config.Modes.Count}");
+        }
+
+        private void RestartUdpService()
+        {
+            try
+            {
+                _udpService.Dispose();
+            }
+            catch (Exception ex)
+            {
+                LoggerService.Error("停止旧的 UDP 控制服务失败", ex);
+            }
+
+            _udpService = CreateUdpService();
+
+            try
+            {
+                _udpService.Start();
+                LoggerService.Info($"UDP 控制服务已按新配置重启：{_config.PcName}:{_config.UdpPort}");
+            }
+            catch (Exception ex)
+            {
+                LoggerService.Error("UDP 控制服务重启失败", ex);
+            }
+        }
+
         private void OnTrayExitRequested()
         {
             // 等托盘菜单处理完本次点击后再退出，避免在菜单回调中直接关闭应用
@@ -215,6 +347,8 @@ namespace CameraShow
             {
                 Show();
                 WindowState = WindowState.Normal;
+                // 设置可能已改变窗口尺寸，恢复显示时统一按当前配置重新应用
+                ApplyWindowSizeFromConfig();
                 Activate();
             }
         }

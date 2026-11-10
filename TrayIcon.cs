@@ -29,6 +29,9 @@ namespace CameraShow
         /// <summary>Shutdown 菜单被点击</summary>
         public static event Action? ShutdownRequested;
 
+        /// <summary>Settings 菜单被点击</summary>
+        public static event Action? SettingsRequested;
+
         /// <summary>Exit 菜单被点击（托盘图标已先行释放）</summary>
         public static event Action? ExitRequested;
 
@@ -135,6 +138,10 @@ namespace CameraShow
             menu.Items.Add(shutdownItem);
 
             menu.Items.Add(new ToolStripSeparator());
+
+            var settingsItem = new ToolStripMenuItem("Settings...");
+            settingsItem.Click += (s, e) => SettingsRequested?.Invoke();
+            menu.Items.Add(settingsItem);
 
             var exitItem = new ToolStripMenuItem("Exit");
             // 不要在菜单点击回调里释放菜单/托盘图标，否则会打断菜单的点击处理流程，
