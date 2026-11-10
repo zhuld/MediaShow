@@ -39,6 +39,7 @@ namespace CameraShow.Services
                 catch (Exception ex)
                 {
                     LoggerService.Error($"配置文件加载失败：{_configPath}", ex);
+                    BackupInvalidConfig();
                     Config = new AppConfig();
                 }
 
@@ -72,5 +73,22 @@ namespace CameraShow.Services
         }
 
         public bool Save() => Save(Config);
+
+        /// <summary>
+        /// 配置解析失败时先备份原文件，避免随后的自动保存把用户配置覆盖丢失
+        /// </summary>
+        private void BackupInvalidConfig()
+        {
+            try
+            {
+                var backupPath = _configPath + ".invalid";
+                File.Copy(_configPath, backupPath, true);
+                LoggerService.Warn($"已将无法解析的配置文件备份到：{backupPath}");
+            }
+            catch (Exception ex)
+            {
+                LoggerService.Error("备份无法解析的配置文件失败", ex);
+            }
+        }
     }
 }

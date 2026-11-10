@@ -43,6 +43,7 @@ CameraShow/
 
 ### 自定义
 - 修改 `config.json` 调整摄像头配置
+- `config.json` 会在构建时复制到输出目录（仅当项目中的文件更新时才覆盖，避免丢失运行期生成的配置）
 - 自定义布局模式在 `Models/Modes` 中定义
 - 图标可在 `Resources` 文件夹中替换
 

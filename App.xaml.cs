@@ -37,5 +37,12 @@ namespace CameraShow
                 catch { /* ignore */ }
             };
         }
+
+        protected override void OnExit(ExitEventArgs e)
+        {
+            // 兜底释放托盘图标，避免退出后残留
+            TrayIconManager.Dispose();
+            base.OnExit(e);
+        }
     }
 }
