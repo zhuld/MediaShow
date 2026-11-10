@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using CameraShow.Models;
+using MediaShow.Models;
 
-namespace CameraShow.Services
+namespace MediaShow.Services
 {
     /// <summary>
     /// 配置校验与规范化，供设置对话框和网页设置共用，保证两条入口的规则一致。

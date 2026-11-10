@@ -3,10 +3,10 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
-using CameraShow.Models;
-using CameraShow.Services;
+using MediaShow.Models;
+using MediaShow.Services;
 
-namespace CameraShow.Services
+namespace MediaShow.Services
 {
     /// <summary>
     /// UDP 网络控制服务：监听指定端口，解析 "PC_1-Cmd" 指令，触发布局模式切换。

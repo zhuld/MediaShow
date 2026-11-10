@@ -6,8 +6,8 @@
     <UseWPF>true</UseWPF>
     <LangVersion>10.0</LangVersion>
     <Nullable>enable</Nullable>
-    <AssemblyName>CameraShow</AssemblyName>
-    <RootNamespace>CameraShow</RootNamespace>
+    <AssemblyName>MediaShow</AssemblyName>
+    <RootNamespace>MediaShow</RootNamespace>
     <PlatformTarget>x64</PlatformTarget>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
@@ -20,7 +20,7 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <EmbeddedResource Include="Web\WebPanel.html">
-      <LogicalName>CameraShow.Web.WebPanel.html</LogicalName>
+      <LogicalName>MediaShow.Web.WebPanel.html</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
 

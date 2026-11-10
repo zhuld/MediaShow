@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace CameraShow.Models
+namespace MediaShow.Models
 {
     /// <summary>
     /// 视图分组：每个分组包含一个 Mode 以及一个或多个子视图

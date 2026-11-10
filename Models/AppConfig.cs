@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace CameraShow.Models
+namespace MediaShow.Models
 {
     /// <summary>
     /// 应用程序完整配置，持久化到 config.json

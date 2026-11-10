@@ -9,10 +9,10 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
-using CameraShow.Models;
-using CameraShow.Services;
+using MediaShow.Models;
+using MediaShow.Services;
 
-namespace CameraShow
+namespace MediaShow
 {
     /// <summary>
     /// 设置对话框：编辑 config.json 中的基础参数、布局模式与视图，确认后返回<b>新</b>配置对象。
@@ -373,7 +373,7 @@ namespace CameraShow
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"无法打开配置文件位置：{ex.Message}", "CameraShow", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show($"无法打开配置文件位置：{ex.Message}", "MediaShow", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
     }

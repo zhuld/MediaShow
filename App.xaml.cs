@@ -1,8 +1,8 @@
 using System;
 using System.Windows;
-using CameraShow.Services;
+using MediaShow.Services;
 
-namespace CameraShow
+namespace MediaShow
 {
     public partial class App : Application
     {
@@ -11,7 +11,7 @@ namespace CameraShow
             base.OnStartup(e);
 
             // 记录启动信息
-            LoggerService.Info("=== CameraShow 启动 ===");
+            LoggerService.Info("=== MediaShow 启动 ===");
 
             // WPF UI 线程未处理异常
             DispatcherUnhandledException += (s, args) =>

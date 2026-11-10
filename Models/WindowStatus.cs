@@ -1,4 +1,4 @@
-namespace CameraShow.Models
+namespace MediaShow.Models
 {
     /// <summary>
     /// 运行中主窗口的实际尺寸与状态，供设置对话框与网页设置页面展示。

@@ -9,12 +9,12 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
 using System.Diagnostics;
-using CameraShow.Models;
-using CameraShow.Services;
+using MediaShow.Models;
+using MediaShow.Services;
 using AForge.Video.DirectShow;
 using System.Windows.Forms;
 
-namespace CameraShow
+namespace MediaShow
 {
     public partial class MainWindow : Window
     {
@@ -251,7 +251,7 @@ namespace CameraShow
                 {
                     System.Windows.MessageBox.Show(
                         "设置已应用，但写入 config.json 失败，请查看 Logs 文件夹中的日志了解详情。",
-                        "CameraShow",
+                        "MediaShow",
                         MessageBoxButton.OK,
                         MessageBoxImage.Warning);
                 }

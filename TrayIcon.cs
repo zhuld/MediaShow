@@ -2,10 +2,10 @@
 using System.Linq;
 using System.Reflection;
 using System.Windows.Forms;
-using CameraShow.Models;
-using CameraShow.Services;
+using MediaShow.Models;
+using MediaShow.Services;
 
-namespace CameraShow
+namespace MediaShow
 {
     /// <summary>
     /// 托盘图标管理类（进程内唯一实例）
@@ -54,14 +54,15 @@ namespace CameraShow
 
             _trayIcon = new NotifyIcon
             {
-                Text = "CameraShow",
+                Text = "MediaShow",
                 Visible = false
             };
 
             try
             {
-                var exePath = Assembly.GetExecutingAssembly().Location;
-                _trayIcon.Icon = System.Drawing.Icon.ExtractAssociatedIcon(exePath);
+                // 使用 server.ico 作为托盘图标
+                var trayIconPath = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!, "Resources\\server.ico");
+                _trayIcon.Icon = new System.Drawing.Icon(trayIconPath);
             }
             catch
             {

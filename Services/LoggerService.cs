@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Text;
 
-namespace CameraShow.Services
+namespace MediaShow.Services
 {
     /// <summary>
     /// 按级别和日期将日志写入程序目录下的 Logs 文件夹。
@@ -32,7 +32,7 @@ namespace CameraShow.Services
         {
             if (_logDirectory == null) return string.Empty;
             var date = DateTime.Now.ToString("yyyyMMdd");
-            return Path.Combine(_logDirectory, $"{level}_{date}.log");
+            return Path.Combine(_logDirectory, $"{date}_{level}.log");
         }
 
         public static void Info(string message)

@@ -7,7 +7,7 @@
             "type": "shell",
             "args": [
                 "build",
-                "${workspaceFolder}/CameraShow.csproj",
+                "${workspaceFolder}/MediaShow.csproj",
                 "-f",
                 "net472"
             ],

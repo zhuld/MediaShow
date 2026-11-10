@@ -1,10 +1,10 @@
 using System;
 using System.IO;
-using CameraShow.Models;
+using MediaShow.Models;
 using Newtonsoft.Json;
-using CameraShow.Services;
+using MediaShow.Services;
 
-namespace CameraShow.Services
+namespace MediaShow.Services
 {
     public class ConfigService
     {

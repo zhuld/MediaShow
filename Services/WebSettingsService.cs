@@ -4,10 +4,10 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
-using CameraShow.Models;
+using MediaShow.Models;
 using Newtonsoft.Json;
 
-namespace CameraShow.Services
+namespace MediaShow.Services
 {
     /// <summary>
     /// 内嵌的远程网页设置服务：在指定端口（默认 8000）提供设置页面与配置接口。
@@ -17,7 +17,7 @@ namespace CameraShow.Services
     public class WebSettingsService : IDisposable
     {
         private const int MaxRequestBytes = 2 * 1024 * 1024;
-        private const string PageResourceName = "CameraShow.Web.WebPanel.html";
+        private const string PageResourceName = "MediaShow.Web.WebPanel.html";
 
         private static readonly JsonSerializerSettings JsonSettings = new()
         {

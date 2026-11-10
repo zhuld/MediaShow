@@ -1,4 +1,4 @@
-namespace CameraShow.Models
+namespace MediaShow.Models
 {
     /// <summary>
     /// 摄像头源信息

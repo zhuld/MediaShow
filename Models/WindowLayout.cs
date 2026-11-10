@@ -1,4 +1,4 @@
-namespace CameraShow.Models
+namespace MediaShow.Models
 {
     /// <summary>
     /// 保留以兼容旧配置，当前不再使用。摄像头显示窗口的尺寸与位置由 ViewGroup / ViewItem 定义。

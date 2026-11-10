@@ -1,7 +1,7 @@
 using System.Windows.Controls;
 using System.Windows.Media.Imaging;
 
-namespace CameraShow.Controls
+namespace MediaShow.Controls
 {
     /// <summary>
     /// 单个摄像头显示控件（不再支持鼠标拖动和缩放，尺寸位置由配置决定）

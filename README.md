@@ -1,9 +1,9 @@
-# CameraShow
+# MediaShow
 
 ## 摄像头显示应用
 
 ### 项目简介
-CameraShow 是一个基于 .NET Framework 4.7.2 的 WPF 桌面应用程序，用于显示和管理本地摄像头视频流。
+MediaShow 是一个基于 .NET Framework 4.7.2 的 WPF 桌面应用程序，用于显示和管理本地摄像头视频流。
 
 ### 主要功能
 - 自动扫描本地可用摄像头
@@ -30,14 +30,14 @@ CameraShow 是一个基于 .NET Framework 4.7.2 的 WPF 桌面应用程序，用
 1. 克隆或下载项目
 2. 还原 NuGet 依赖: `dotnet restore`
 3. 构建项目: `dotnet build`
-4. 运行: `dotnet run` 或直接执行 `CameraShow.exe`
+4. 运行: `dotnet run` 或直接执行 `MediaShow.exe`
 
 ### 项目结构
 ```
-CameraShow/
+MediaShow/
 ├── MainWindow.xaml        # 主窗口 UI
 ├── MainWindow.xaml.cs     # 主窗口逻辑
-├── CameraShow.csproj      # 项目配置
+├── MediaShow.csproj      # 项目配置
 ├── config.json            # 配置文件
 ├── Web/WebPanel.html      # 内嵌的远程网页设置页面
 ├── bin/                   # 构建输出目录
@@ -73,11 +73,11 @@ CameraShow/
 局域网内的手机、平板或其他电脑用浏览器访问即可：
 
 ```
-http://<运行 CameraShow 的电脑 IP>:8000/
+http://<运行 MediaShow 的电脑 IP>:8000/
 ```
 
 页面提供与桌面设置对话框相同的编辑能力（基本参数、布局模式、摄像头清单），点击「保存并应用」后同样立即生效；
-直接在浏览器中打开 `http://<运行 CameraShow 的电脑 IP>:<WebPort>/` 即可（本机可用 `http://localhost:<WebPort>/`）。
+直接在浏览器中打开 `http://<运行 MediaShow 的电脑 IP>:<WebPort>/` 即可（本机可用 `http://localhost:<WebPort>/`）。
 
 相关接口（供页面自身使用）：
 

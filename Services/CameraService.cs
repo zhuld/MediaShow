@@ -4,12 +4,12 @@ using System.Threading;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using CameraShow.Models;
-using CameraShow.Services;
+using MediaShow.Models;
+using MediaShow.Services;
 using AForge.Video;
 using AForge.Video.DirectShow;
 
-namespace CameraShow.Services
+namespace MediaShow.Services
 {
     /// <summary>
     /// 摄像头采集服务：基于 AForge.Video.DirectShow，每个摄像头独立线程读取帧，
