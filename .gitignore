@@ -1,0 +1,65 @@
+# =============================================================================
+# CameraShow - .NET Framework 4.7.2 WPF 项目 Git 忽略文件
+# =============================================================================
+
+## 构建输出
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+
+## Visual Studio / VS Code
+.vs/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.Cache
+.csproj.user
+*.DotSettings.user
+
+## NuGet
+*.nupkg
+*.nupkg.cache
+**/[Pp]ackages/*
+!**/[Pp]ackages/repositories.config
+.nuget.props
+.nuget.targets
+
+## 运行时 / 发布输出
+publish/
+*.publish.xml
+artifacts/
+
+## 日志
+Logs/
+*.log
+*.log.*
+
+## 本地配置（包含本机端口、摄像头索引等，建议不提交）
+config.json
+config.*.json
+appsettings.*.json
+
+## 临时文件
+*.tmp
+*.temp
+_ReSharper*/*
+*.tlog
+*.lastbuildstate
+
+## Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+## OS
+.DS_Store
+
+# 结束

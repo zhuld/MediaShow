@@ -1,0 +1,20 @@
+<Window x:Class="CameraShow.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:CameraShow.Controls"
+        Title="CameraShow - 摄像头显示"
+        Width="1280" Height="720"
+        WindowStyle="None"
+        WindowState="Maximized"
+        Loaded="Window_Loaded">
+    <Grid>
+        <Canvas x:Name="LayoutCanvas" Background="Black"/>
+
+        <StatusBar VerticalAlignment="Bottom"
+                   Background="#7F000000"
+                   Foreground="White"
+                   Padding="6,2">
+            <TextBlock x:Name="StatusText" Text="正在启动..." />
+        </StatusBar>
+    </Grid>
+</Window>
