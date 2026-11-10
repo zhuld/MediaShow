@@ -11,6 +11,7 @@ using System.Windows.Threading;
 using CameraShow.Models;
 using CameraShow.Services;
 using AForge.Video.DirectShow;
+using System.Windows.Forms;
 
 namespace CameraShow
 {
@@ -30,6 +31,7 @@ namespace CameraShow
         private bool _allowClose;
         private HwndSource? _windowSource;
         private string _currentModeName = string.Empty;
+        private NotifyIcon? _trayIcon;
 
         public MainWindow()
         {
@@ -85,6 +87,47 @@ namespace CameraShow
             {
                 LoggerService.Error("UDP 服务启动失败", ex);
             }
+
+            // Initialize tray icon
+            _trayIcon = new NotifyIcon
+            {
+                // Try to use the application's executable icon, fallback to a system icon
+                Visible = true,
+                Text = "CameraShow"
+                // Icon will be set after resources are added, or use default
+            };
+
+            // Try to set icon from the application assembly
+            try
+            {
+                var exePath = System.Reflection.Assembly.GetExecutingAssembly().Location;
+                _trayIcon.Icon = System.Drawing.Icon.ExtractAssociatedIcon(exePath);
+            }
+            catch
+            {
+                // If icon extraction fails, use a simple default
+            }
+
+            // Create context menu
+            var menu = new ContextMenuStrip();
+            var exitItem = new ToolStripMenuItem("Exit");
+            exitItem.Click += (s, e) =>
+            {
+                _isShuttingDown = true;
+                System.Windows.Application.Current.Shutdown();
+            };
+            menu.Items.Add(exitItem);
+            _trayIcon.ContextMenuStrip = menu;
+
+            // Handle double-click to restore window
+            _trayIcon.DoubleClick += (s, e) =>
+            {
+                if (WindowState == WindowState.Minimized || !IsVisible)
+                {
+                    Show();
+                    WindowState = WindowState.Normal;
+                }
+            };
 
             LoggerService.Info("主窗口构造完成");
         }

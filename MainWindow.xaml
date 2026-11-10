@@ -2,8 +2,10 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:CameraShow.Controls"
-        Title="CameraShow - 摄像头显示"
-        Width="1280" Height="720"
+        Title="CameraShow"
+        ShowInTaskbar="False"
+        Width="1280"
+        Height="720"
         WindowStyle="None"
         ResizeMode="NoResize"
         WindowState="Maximized"
@@ -12,7 +14,8 @@
         PreviewKeyDown="Window_PreviewKeyDown"
         Closing="Window_Closing">
     <Grid Background="Black">
-        <Canvas x:Name="LayoutCanvas" Background="Black"/>
+        <Canvas x:Name="LayoutCanvas"
+                Background="Black"/>
 
         <StatusBar x:Name="ModeStatusBar"
                    VerticalAlignment="Bottom"
@@ -22,7 +25,7 @@
                    Visibility="Collapsed">
             <TextBlock x:Name="StatusText"
                        Text="正在启动..."
-                       VerticalAlignment="Center" />
+                       VerticalAlignment="Center"/>
         </StatusBar>
     </Grid>
 </Window>
