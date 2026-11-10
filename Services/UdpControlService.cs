@@ -19,7 +19,7 @@ namespace CameraShow.Services
         private Thread? _listenThread;
         private volatile bool _running;
 
-        public event Action<LayoutMode>? ModeChanged;
+        public event Action<string>? ModeChanged;
 
         public UdpControlService(string pcName, int port)
         {
@@ -129,7 +129,7 @@ namespace CameraShow.Services
 
         private void ProcessCommand(string msg)
         {
-            // 期望格式：PC_1-Cmd  （例如 PC_1-Single 或 PC_1-LeftRight）
+            // 期望格式：PC_1-ModeName（ModeName 与配置中的 Modes[].Mode 对应）
             var idx = msg.IndexOf('-');
             if (idx <= 0) return;
 
@@ -142,15 +142,8 @@ namespace CameraShow.Services
                 return;
             }
 
-            if (Enum.TryParse<LayoutMode>(cmd, true, out var mode))
-            {
-                LoggerService.Info($"UDP 指令有效：{cmd} -> {mode}");
-                ModeChanged?.Invoke(mode);
-            }
-            else
-            {
-                LoggerService.Warn($"UDP 指令忽略：未知模式 {cmd}");
-            }
+            LoggerService.Info($"收到 UDP 模式指令：{cmd}");
+            ModeChanged?.Invoke(cmd);
         }
 
         public void Dispose()

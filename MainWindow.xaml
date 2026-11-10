@@ -5,11 +5,13 @@
         Title="CameraShow - 摄像头显示"
         Width="1280" Height="720"
         WindowStyle="None"
+        ResizeMode="NoResize"
         WindowState="Maximized"
+        Background="Black"
         Loaded="Window_Loaded"
         PreviewKeyDown="Window_PreviewKeyDown"
         Closing="Window_Closing">
-    <Grid>
+    <Grid Background="Black">
         <Canvas x:Name="LayoutCanvas" Background="Black"/>
 
         <StatusBar x:Name="ModeStatusBar"

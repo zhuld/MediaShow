@@ -49,6 +49,10 @@ namespace CameraShow
                 try
                 {
                     var svc = new CameraService(cam);
+                    svc.FrameReady += bitmap =>
+                    {
+                        DispatchToUi(() => UpdateCameraFrames(cam.Id, bitmap));
+                    };
                     svc.ErrorOccurred += err =>
                     {
                         LoggerService.Error($"摄像头{cam.Name} 运行错误：{err}");
@@ -63,13 +67,13 @@ namespace CameraShow
             }
 
             _udpService = new UdpControlService(_config.PcName, _config.UdpPort);
-            _udpService.ModeChanged += mode =>
+            _udpService.ModeChanged += modeName =>
             {
                 DispatchToUi(() =>
                 {
-                    _currentModeName = mode.ToString();
+                    ApplyViewsLayout(modeName);
                     ShowModeStatus(_currentModeName);
-                    LoggerService.Info($"网络指令切换布局：{mode}");
+                    LoggerService.Info($"网络指令切换布局：{modeName}");
                 });
             };
 
@@ -108,7 +112,7 @@ namespace CameraShow
                 {
                     if (!_isShuttingDown)
                     {
-                        ApplyViewsLayout();
+                        ApplyViewsLayout(_currentModeName);
                     }
                 }));
             }
@@ -206,7 +210,7 @@ namespace CameraShow
         /// 1 个视图：居中显示；2 个视图：左右排列；超过 2 个：暂时仅显示前 2 个
         /// 所有尺寸和位置完全来自 config.json ViewItem.W / ViewItem.H
         /// </summary>
-        private void ApplyViewsLayout()
+        private void ApplyViewsLayout(string? requestedMode = null)
         {
             if (_config.Modes == null || _config.Modes.Count == 0)
             {
@@ -214,23 +218,43 @@ namespace CameraShow
                 return;
             }
 
+            var modeName = requestedMode ?? _config.DefaultMode;
             var group = _config.Modes.FirstOrDefault(
-                mode => string.Equals(mode.Mode, _config.DefaultMode, StringComparison.OrdinalIgnoreCase));
+                mode => string.Equals(mode.Mode, modeName, StringComparison.OrdinalIgnoreCase));
             if (group == null)
             {
-                LoggerService.Warn($"未找到启动默认模式 {_config.DefaultMode}，回退到第一个布局 { _config.Modes[0].Mode }");
+                if (requestedMode != null)
+                {
+                    LoggerService.Warn($"未配置布局模式 {requestedMode}，保持当前布局不变");
+                    return;
+                }
+
+                LoggerService.Warn($"未找到启动默认模式 {_config.DefaultMode}，回退到第一个布局 {_config.Modes[0].Mode}");
                 group = _config.Modes[0];
             }
 
             var items = group.Views;
+            _currentModeName = group.Mode;
 
             if (items == null || items.Count == 0)
             {
-                LoggerService.Warn($"启动模式 {group.Mode} 中没有子视图");
+                foreach (var existingView in _cameraViews.Values)
+                {
+                    LayoutCanvas.Children.Remove(existingView);
+                }
+
+                _cameraViews.Clear();
+                LoggerService.Info($"模式 {group.Mode} 没有配置视图，清空显示内容");
                 return;
             }
 
-            _currentModeName = group.Mode;
+            var visibleItems = items.Take(2).ToList();
+            foreach (var oldView in _cameraViews.Keys.Where(item => !visibleItems.Contains(item)).ToList())
+            {
+                LayoutCanvas.Children.Remove(_cameraViews[oldView]);
+                _cameraViews.Remove(oldView);
+            }
+
             double canvasW = LayoutCanvas.ActualWidth;
             double canvasH = LayoutCanvas.ActualHeight;
             var dpi = VisualTreeHelper.GetDpi(this);
@@ -294,18 +318,21 @@ namespace CameraShow
             Canvas.SetTop(camView, y);
             Canvas.SetZIndex(camView, zIndex);
 
-            if (_cameraServices.TryGetValue(item.CameraId, out var svc))
-            {
-                svc.FrameReady += bmp =>
-                {
-                    DispatchToUi(() => camView.SetImage(bmp));
-                };
-            }
-
             _cameraViews[item] = camView;
             LayoutCanvas.Children.Add(camView);
             LoggerService.Info($"创建摄像头显示窗口：CameraId={item.CameraId}, X={x}, Y={y}, W={w}, H={h}");
             return camView;
+        }
+
+        private void UpdateCameraFrames(string cameraId, System.Windows.Media.Imaging.BitmapSource bitmap)
+        {
+            foreach (var view in _cameraViews.Values)
+            {
+                if (string.Equals(view.CameraId, cameraId, StringComparison.Ordinal))
+                {
+                    view.SetImage(bitmap);
+                }
+            }
         }
 
         private void ShowModeStatus(string modeName)
