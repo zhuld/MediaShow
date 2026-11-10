@@ -8,7 +8,6 @@ namespace CameraShow.Controls
     /// </summary>
     public partial class CameraView : Grid
     {
-        public string ViewId { get; set; } = string.Empty;
         public string CameraId { get; set; } = string.Empty;
 
         public CameraView()

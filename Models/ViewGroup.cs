@@ -7,7 +7,6 @@ namespace CameraShow.Models
     /// </summary>
     public class ViewGroup
     {
-        public string Id { get; set; } = string.Empty;
         public string Mode { get; set; } = "Single";
         public List<ViewItem> Views { get; set; } = new();
     }
@@ -17,7 +16,6 @@ namespace CameraShow.Models
     /// </summary>
     public class ViewItem
     {
-        public string Id { get; set; } = string.Empty;
         public string CameraId { get; set; } = string.Empty;
         public double W { get; set; } = 640;
         public double H { get; set; } = 480;

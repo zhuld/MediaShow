@@ -5,8 +5,7 @@ using System.Text;
 namespace CameraShow.Services
 {
     /// <summary>
-    /// 简单文件日志服务：将所有错误和运行信息写入程序目录下的 Logs 文件夹。
-    /// 日志按天生成，文件名格式：yyyyMMdd.log
+    /// 按级别和日期将日志写入程序目录下的 Logs 文件夹。
     /// </summary>
     public static class LoggerService
     {
@@ -29,11 +28,11 @@ namespace CameraShow.Services
             }
         }
 
-        private static string GetLogFilePath()
+        private static string GetLogFilePath(string level)
         {
             if (_logDirectory == null) return string.Empty;
             var date = DateTime.Now.ToString("yyyyMMdd");
-            return Path.Combine(_logDirectory, $"{date}.log");
+            return Path.Combine(_logDirectory, $"{level}_{date}.log");
         }
 
         public static void Info(string message)
@@ -67,7 +66,7 @@ namespace CameraShow.Services
 
             try
             {
-                var logPath = GetLogFilePath();
+                var logPath = GetLogFilePath(level);
                 if (string.IsNullOrEmpty(logPath)) return;
 
                 var line = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] [{level}] [Thread {System.Threading.Thread.CurrentThread.ManagedThreadId}] {message}{Environment.NewLine}";

@@ -21,7 +21,7 @@ namespace CameraShow
         private readonly UdpControlService _udpService;
 
         private readonly Dictionary<string, CameraService> _cameraServices = new();
-        private readonly Dictionary<string, Controls.CameraView> _cameraViews = new();
+        private readonly Dictionary<ViewItem, Controls.CameraView> _cameraViews = new();
         private volatile bool _isShuttingDown;
         private bool _allowClose;
         private HwndSource? _windowSource;
@@ -224,7 +224,7 @@ namespace CameraShow
 
             if (items == null || items.Count == 0)
             {
-                LoggerService.Warn($"ViewGroup {group.Id} 中没有子视图");
+                LoggerService.Warn($"启动模式 {group.Mode} 中没有子视图");
                 return;
             }
 
@@ -271,7 +271,7 @@ namespace CameraShow
 
         private Controls.CameraView CreateCameraView(ViewItem item, double x, double y, double w, double h, int zIndex)
         {
-            if (_cameraViews.TryGetValue(item.Id, out var existingView))
+            if (_cameraViews.TryGetValue(item, out var existingView))
             {
                 existingView.Width = w;
                 existingView.Height = h;
@@ -283,11 +283,9 @@ namespace CameraShow
 
             var camView = new Controls.CameraView
             {
-                ViewId = item.Id,
                 CameraId = item.CameraId,
                 Width = w,
-                Height = h,
-                Tag = item.Id
+                Height = h
             };
             Canvas.SetLeft(camView, x);
             Canvas.SetTop(camView, y);
@@ -301,9 +299,9 @@ namespace CameraShow
                 };
             }
 
-            _cameraViews[item.Id] = camView;
+            _cameraViews[item] = camView;
             LayoutCanvas.Children.Add(camView);
-            LoggerService.Info($"创建摄像头显示窗口：ViewId={item.Id}, CameraId={item.CameraId}, X={x}, Y={y}, W={w}, H={h}");
+            LoggerService.Info($"创建摄像头显示窗口：CameraId={item.CameraId}, X={x}, Y={y}, W={w}, H={h}");
             return camView;
         }
 
@@ -396,11 +394,6 @@ namespace CameraShow
                 for (var i = 0; i < group.Views.Count; i++)
                 {
                     var view = group.Views[i];
-                    if (string.IsNullOrWhiteSpace(view.Id))
-                    {
-                        view.Id = $"view_{i}";
-                    }
-
                     if (string.IsNullOrWhiteSpace(view.CameraId) || !cameraIds.Contains(view.CameraId))
                     {
                         view.CameraId = i < cameras.Count ? cameras[i].Id : string.Empty;
