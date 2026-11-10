@@ -11,6 +11,14 @@ namespace CameraShow.Services
     public static class ConfigValidator
     {
         public const string BlankModeName = "Blank";
+        public const string DesktopModeName = "Desktop";
+
+        /// <summary>判断是否为内置模式（不依赖 config.json 中的 Modes 定义）</summary>
+        public static bool IsBuiltInMode(string? modeName)
+        {
+            return string.Equals(modeName, BlankModeName, StringComparison.OrdinalIgnoreCase)
+                   || string.Equals(modeName, DesktopModeName, StringComparison.OrdinalIgnoreCase);
+        }
 
         /// <summary>将配置中的文本字段与集合规范化为可直接保存的状态</summary>
         public static void Normalize(AppConfig config)
@@ -161,8 +169,7 @@ namespace CameraShow.Services
             {
                 errors.Add("请选择默认模式。");
             }
-            else if (!string.Equals(defaultMode, BlankModeName, StringComparison.OrdinalIgnoreCase)
-                     && !modeNames.Contains(defaultMode))
+            else if (!IsBuiltInMode(defaultMode) && !modeNames.Contains(defaultMode))
             {
                 errors.Add($"默认模式“{defaultMode}”不在布局模式列表中。");
             }

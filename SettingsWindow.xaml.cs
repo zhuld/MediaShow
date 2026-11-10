@@ -21,6 +21,7 @@ namespace CameraShow
     public partial class SettingsWindow : Window
     {
         private const string BlankModeName = "Blank";
+        private const string DesktopModeName = "Desktop";
 
         private readonly ObservableCollection<ModeEditor> _modes = new();
         private readonly List<CameraSource> _cameras;
@@ -34,12 +35,13 @@ namespace CameraShow
         /// <summary>配置文件完整路径（仅用于展示与定位）</summary>
         public string ConfigPath { get; }
 
-        public SettingsWindow(AppConfig config, string configPath)
+        public SettingsWindow(AppConfig config, string configPath, WindowStatus? windowStatus = null)
         {
             InitializeComponent();
 
             ConfigPath = configPath;
             ConfigPathText.Text = configPath;
+            ShowWindowStatus(windowStatus);
 
             _cameras = (config.CameraSources ?? new List<CameraSource>())
                 .Select(camera => new CameraSource
@@ -112,6 +114,7 @@ namespace CameraShow
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
             options.Add(BlankModeName);
+            options.Add(DesktopModeName);
 
             _updatingDefaultMode = true;
             try
@@ -217,7 +220,8 @@ namespace CameraShow
                 name = $"Mode{index++}";
             }
             while (_modes.Any(mode => string.Equals(mode.Name, name, StringComparison.OrdinalIgnoreCase))
-                   || string.Equals(name, BlankModeName, StringComparison.OrdinalIgnoreCase));
+                   || string.Equals(name, BlankModeName, StringComparison.OrdinalIgnoreCase)
+                   || string.Equals(name, DesktopModeName, StringComparison.OrdinalIgnoreCase));
 
             return name;
         }
@@ -328,6 +332,26 @@ namespace CameraShow
 
             error = string.Empty;
             return true;
+        }
+
+        /// <summary>
+        /// 展示主窗口当前的实际尺寸（物理像素 + WPF DIP + DPI 缩放）
+        /// </summary>
+        private void ShowWindowStatus(WindowStatus? status)
+        {
+            if (status == null)
+            {
+                WindowStatusText.Text = "当前窗口实际尺寸：暂不可用（窗口尚未创建）";
+                return;
+            }
+
+            var scalePercent = Math.Round(status.DpiScaleX * 100);
+            var dipText = $"{status.WidthDip:0.#} × {status.HeightDip:0.#} DIP";
+            var modeText = string.IsNullOrWhiteSpace(status.CurrentMode) ? string.Empty : $"，模式 {status.CurrentMode}";
+
+            WindowStatusText.Text = status.IsMinimized
+                ? $"当前窗口：已最小化（Desktop），恢复后尺寸 {status.PixelWidth} × {status.PixelHeight} 像素（{dipText}，缩放 {scalePercent}%{modeText}）"
+                : $"当前窗口：{status.PixelWidth} × {status.PixelHeight} 像素（{dipText}，缩放 {scalePercent}%{modeText}）";
         }
 
         private void OpenConfigFolder_Click(object sender, RoutedEventArgs e)

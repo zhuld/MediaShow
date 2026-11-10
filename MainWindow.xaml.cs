@@ -34,6 +34,7 @@ namespace CameraShow
         private bool _cleanupStarted;
         private HwndSource? _windowSource;
         private const string BlankModeName = "Blank";
+        private const string DesktopModeName = "Desktop";
         private string _currentModeName = string.Empty;
 
         public MainWindow()
@@ -123,7 +124,6 @@ namespace CameraShow
             TrayIconManager.DesktopRequested += OnTrayDesktopRequested;
             TrayIconManager.ShutdownRequested += OnTrayShutdownRequested;
             TrayIconManager.SettingsRequested += OnTraySettingsRequested;
-            TrayIconManager.WebSettingsRequested += OnTrayWebSettingsRequested;
             TrayIconManager.ExitRequested += OnTrayExitRequested;
             TrayIconManager.RestoreRequested += OnTrayRestoreRequested;
         }
@@ -135,7 +135,6 @@ namespace CameraShow
             TrayIconManager.DesktopRequested -= OnTrayDesktopRequested;
             TrayIconManager.ShutdownRequested -= OnTrayShutdownRequested;
             TrayIconManager.SettingsRequested -= OnTraySettingsRequested;
-            TrayIconManager.WebSettingsRequested -= OnTrayWebSettingsRequested;
             TrayIconManager.ExitRequested -= OnTrayExitRequested;
             TrayIconManager.RestoreRequested -= OnTrayRestoreRequested;
         }
@@ -161,9 +160,7 @@ namespace CameraShow
         {
             if (_isShuttingDown) return;
 
-            WindowState = WindowState.Minimized;
-            _currentModeName = "Desktop";
-            ShowModeStatus("Desktop");
+            ApplyDesktopMode();
             LoggerService.Info("手动切换模式：Desktop");
         }
 
@@ -205,7 +202,7 @@ namespace CameraShow
 
             try
             {
-                var dialog = new SettingsWindow(_config, _configService.ConfigPath);
+                var dialog = new SettingsWindow(_config, _configService.ConfigPath, GetWindowStatus());
 
                 // 主窗口处于最小化（Desktop 模式）时不能作为拥有者，否则对话框可能被隐藏
                 if (IsVisible && WindowState != WindowState.Minimized)
@@ -327,45 +324,6 @@ namespace CameraShow
             }
         }
 
-        private void OnTrayWebSettingsRequested()
-        {
-            if (_isShuttingDown) return;
-
-            Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(OpenWebSettingsPage));
-        }
-
-        /// <summary>
-        /// 在默认浏览器中打开本机网页设置页
-        /// </summary>
-        private void OpenWebSettingsPage()
-        {
-            if (_config.WebPort <= 0)
-            {
-                System.Windows.MessageBox.Show(
-                    "网页设置已在配置中关闭（WebPort = 0）。\n请先在 Settings... 中设置一个大于 0 的端口。",
-                    "CameraShow",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
-                return;
-            }
-
-            var url = $"http://localhost:{_config.WebPort}/";
-            try
-            {
-                Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
-                LoggerService.Info($"已打开网页设置：{url}");
-            }
-            catch (Exception ex)
-            {
-                LoggerService.Error("打开网页设置失败", ex);
-                System.Windows.MessageBox.Show(
-                    $"无法打开浏览器：{ex.Message}\n\n可在浏览器中手动访问 {url}",
-                    "CameraShow",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
-            }
-        }
-
         /// <summary>
         /// 启动内嵌的网页设置服务（WebPort 为 0 时表示关闭）
         /// </summary>
@@ -379,7 +337,7 @@ namespace CameraShow
 
             try
             {
-                _webService = new WebSettingsService(_config.WebPort, GetConfigSnapshot, ApplySettingsFromWeb);
+                _webService = new WebSettingsService(_config.WebPort, GetConfigSnapshot, ApplySettingsFromWeb, GetWindowStatusSnapshot);
                 _webService.Start();
             }
             catch (Exception ex)
@@ -441,6 +399,55 @@ namespace CameraShow
                 LoggerService.Error("应用网页设置失败", ex);
                 return false;
             }
+        }
+
+        /// <summary>
+        /// 读取主窗口的实际显示尺寸（WPF DIP）并按当前 DPI 换算为物理像素
+        /// </summary>
+        private WindowStatus GetWindowStatus()
+        {
+            var dpi = VisualTreeHelper.GetDpi(this);
+            var width = ActualWidth;
+            var height = ActualHeight;
+
+            // 最小化或尚未完成布局时 ActualWidth/Height 可能为 0，改用恢复后的尺寸
+            if (width <= 0) width = RestoreBounds.Width;
+            if (height <= 0) height = RestoreBounds.Height;
+
+            if (width <= 0) width = _config.WindowWidth > 0 ? _config.WindowWidth : SystemParameters.FullPrimaryScreenWidth;
+            if (height <= 0) height = _config.WindowHeight > 0 ? _config.WindowHeight : SystemParameters.FullPrimaryScreenHeight;
+
+            return new WindowStatus
+            {
+                WidthDip = Math.Round(width, 1),
+                HeightDip = Math.Round(height, 1),
+                PixelWidth = (int)Math.Round(width * dpi.DpiScaleX),
+                PixelHeight = (int)Math.Round(height * dpi.DpiScaleY),
+                DpiScaleX = Math.Round(dpi.DpiScaleX, 2),
+                DpiScaleY = Math.Round(dpi.DpiScaleY, 2),
+                IsMinimized = WindowState == WindowState.Minimized,
+                CurrentMode = _currentModeName
+            };
+        }
+
+        /// <summary>
+        /// 供网页服务在后台线程读取窗口状态
+        /// </summary>
+        private WindowStatus? GetWindowStatusSnapshot()
+        {
+            try
+            {
+                if (!_isShuttingDown && !Dispatcher.HasShutdownStarted)
+                {
+                    return Dispatcher.Invoke(GetWindowStatus);
+                }
+            }
+            catch (Exception ex)
+            {
+                LoggerService.Error("读取窗口状态失败", ex);
+            }
+
+            return null;
         }
 
         private void OnTrayExitRequested()
@@ -642,6 +649,17 @@ namespace CameraShow
             LoggerService.Info("切换到 Blank 模式：黑屏，不显示任何内容");
         }
 
+        /// <summary>
+        /// 内置 Desktop 模式：最小化窗口，只显示桌面（保留当前视图，恢复窗口时可直接显示）
+        /// </summary>
+        private void ApplyDesktopMode()
+        {
+            _currentModeName = DesktopModeName;
+            WindowState = WindowState.Minimized;
+            ShowModeStatus(DesktopModeName);
+            LoggerService.Info("切换到 Desktop 模式：最小化到桌面");
+        }
+
         private void ClearCameraViews()
         {
             foreach (var view in _cameraViews.Values)
@@ -655,6 +673,13 @@ namespace CameraShow
         private void ApplyViewsLayout(string? requestedMode = null)
         {
             var modeName = requestedMode ?? _config.DefaultMode;
+
+            // 内置模式 Desktop：直接最小化，无需先恢复窗口
+            if (string.Equals(modeName, DesktopModeName, StringComparison.OrdinalIgnoreCase))
+            {
+                ApplyDesktopMode();
+                return;
+            }
 
             // 从 Desktop 模式（最小化）切回任何显示模式时，先把窗口恢复到正常状态
             EnsureWindowVisible();

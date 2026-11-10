@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="CameraShow 设置"
-        Width="840" Height="700"
+        Width="840" Height="720"
         MinWidth="720" MinHeight="560"
         WindowStartupLocation="CenterScreen"
         Background="#F3F4F6"
@@ -178,26 +178,26 @@
                             <TextBlock Style="{StaticResource FieldHint}"
                                        Text="UDP 指令格式为“计算机名-模式名”，例如 PC_1-Single，因此不能包含“-”。"/>
 
-                            <TextBlock Text="UDP 监听端口 (UdpPort)" Style="{StaticResource FieldLabel}" Margin="0,16,0,0"/>
+                            <TextBlock Text="UDP 监听端口 (UdpPort)" Style="{StaticResource FieldLabel}" Margin="0,12,0,0"/>
                             <TextBox x:Name="UdpPortBox" Width="160" HorizontalAlignment="Left" Margin="0,5,0,0"/>
                             <TextBlock Style="{StaticResource FieldHint}"
                                        Text="取值范围 1～65535，修改后会立即重启 UDP 控制服务。"/>
 
-                            <TextBlock Text="网页设置端口 (WebPort)" Style="{StaticResource FieldLabel}" Margin="0,16,0,0"/>
+                            <TextBlock Text="网页设置端口 (WebPort)" Style="{StaticResource FieldLabel}" Margin="0,12,0,0"/>
                             <TextBox x:Name="WebPortBox" Width="160" HorizontalAlignment="Left" Margin="0,5,0,0"/>
                             <TextBlock Style="{StaticResource FieldHint}"
                                        Text="默认 8000，浏览器访问 http://本机IP:端口/ 即可远程修改配置；0 表示关闭网页设置。"/>
 
-                            <TextBlock Text="默认模式 (DefaultMode)" Style="{StaticResource FieldLabel}" Margin="0,16,0,0"/>
+                            <TextBlock Text="默认模式 (DefaultMode)" Style="{StaticResource FieldLabel}" Margin="0,12,0,0"/>
                             <ComboBox x:Name="DefaultModeCombo"
                                       Width="240"
                                       HorizontalAlignment="Left"
                                       Margin="0,5,0,0"
                                       SelectionChanged="DefaultModeCombo_SelectionChanged"/>
                             <TextBlock Style="{StaticResource FieldHint}"
-                                       Text="程序启动时使用的布局模式，可选“Blank”（纯黑屏）。"/>
+                                       Text="程序启动时使用的布局模式，可选内置的“Blank”（纯黑屏）或“Desktop”（最小化到桌面）。"/>
 
-                            <TextBlock Text="窗口尺寸 (WindowWidth / WindowHeight)" Style="{StaticResource FieldLabel}" Margin="0,16,0,0"/>
+                            <TextBlock Text="窗口尺寸 (WindowWidth / WindowHeight)" Style="{StaticResource FieldLabel}" Margin="0,12,0,0"/>
                             <Grid Width="360" HorizontalAlignment="Left" Margin="0,5,0,0">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -216,6 +216,15 @@
                             </Grid>
                             <TextBlock Style="{StaticResource FieldHint}"
                                        Text="任一项设置为 0 表示启动时铺满全屏（如 0 / 720 即全屏）。"/>
+
+                            <Border Background="#F1F5F9" BorderBrush="#E5E7EB" BorderThickness="1"
+                                    CornerRadius="4" Padding="9,5" Margin="0,8,0,0" HorizontalAlignment="Left">
+                                <TextBlock x:Name="WindowStatusText"
+                                           FontSize="11.5"
+                                           Foreground="#374151"
+                                           TextWrapping="Wrap"
+                                           Text="当前窗口实际尺寸：读取中…"/>
+                            </Border>
                         </StackPanel>
                     </ScrollViewer>
                 </Border>
@@ -343,3 +352,4 @@
         </Border>
     </Grid>
 </Window>
+

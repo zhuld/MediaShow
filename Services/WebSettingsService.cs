@@ -29,6 +29,7 @@ namespace CameraShow.Services
         private readonly int _port;
         private readonly Func<AppConfig> _getConfig;
         private readonly Func<AppConfig, bool> _applyConfig;
+        private readonly Func<WindowStatus?>? _getWindowStatus;
         private TcpListener? _listener;
         private Thread? _acceptThread;
         private volatile bool _running;
@@ -42,11 +43,17 @@ namespace CameraShow.Services
         /// <param name="port">监听端口，小于等于 0 表示不启用</param>
         /// <param name="getConfig">返回当前配置快照（应保证线程安全）</param>
         /// <param name="applyConfig">应用并保存新配置，返回是否成功</param>
-        public WebSettingsService(int port, Func<AppConfig> getConfig, Func<AppConfig, bool> applyConfig)
+        /// <param name="getWindowStatus">返回主窗口当前实际尺寸，供网页展示</param>
+        public WebSettingsService(
+            int port,
+            Func<AppConfig> getConfig,
+            Func<AppConfig, bool> applyConfig,
+            Func<WindowStatus?>? getWindowStatus = null)
         {
             _port = port;
             _getConfig = getConfig ?? throw new ArgumentNullException(nameof(getConfig));
             _applyConfig = applyConfig ?? throw new ArgumentNullException(nameof(applyConfig));
+            _getWindowStatus = getWindowStatus;
         }
 
         public void Start()
@@ -141,6 +148,22 @@ namespace CameraShow.Services
                             var config = _getConfig();
                             WriteResponse(stream, 200, "OK", "application/json; charset=utf-8",
                                 JsonConvert.SerializeObject(config, JsonSettings));
+                            return;
+                        }
+
+                        if (path == "/api/status")
+                        {
+                            var status = _getWindowStatus?.Invoke();
+                            if (status == null)
+                            {
+                                WriteJson(stream, 503, new { ok = false, message = "窗口状态不可用。" });
+                            }
+                            else
+                            {
+                                WriteResponse(stream, 200, "OK", "application/json; charset=utf-8",
+                                    JsonConvert.SerializeObject(status, JsonSettings));
+                            }
+
                             return;
                         }
 
@@ -317,6 +340,7 @@ namespace CameraShow.Services
             400 => "Bad Request",
             404 => "Not Found",
             500 => "Internal Server Error",
+            503 => "Service Unavailable",
             _ => "OK"
         };
 

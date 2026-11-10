@@ -329,6 +329,48 @@
         margin-bottom: 5px;
     }
 
+    .window-status {
+        display: flex;
+        align-items: baseline;
+        flex-wrap: wrap;
+        gap: 8px 16px;
+        margin-top: 20px;
+        padding: 12px 15px;
+        border: 1px solid rgba(67, 227, 198, .22);
+        border-radius: 10px;
+        background: linear-gradient(90deg, rgba(67, 227, 198, .07), rgba(67, 227, 198, .015));
+        transition: border-color .2s ease, background .2s ease;
+    }
+
+    .window-status .ws-label {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        letter-spacing: .14em;
+        color: var(--muted);
+        text-transform: uppercase;
+    }
+
+    .window-status .ws-value {
+        font-family: var(--display);
+        font-size: 20px;
+        letter-spacing: .04em;
+        color: var(--accent);
+        font-weight: 600;
+    }
+
+    .window-status .ws-meta {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--faint);
+    }
+
+    .window-status.is-minimized {
+        border-color: rgba(255, 180, 84, .3);
+        background: linear-gradient(90deg, rgba(255, 180, 84, .08), rgba(255, 180, 84, .015));
+    }
+
+    .window-status.is-minimized .ws-value { color: var(--warn); }
+
     /* ---------- modes ---------- */
 
     .modes-layout {
@@ -661,7 +703,7 @@
             <div class="field">
                 <label for="defaultMode">默认模式 <span class="key">DefaultMode</span></label>
                 <select id="defaultMode"></select>
-                <p class="hint">程序启动时使用的布局，可选「Blank」纯黑屏。</p>
+                <p class="hint">程序启动时使用的布局，可选内置的「Blank」纯黑屏或「Desktop」最小化到桌面。</p>
             </div>
 
             <div class="field">
@@ -691,6 +733,12 @@
                 </div>
                 <p class="hint">任一项为 0 表示铺满全屏（例如 0 / 720）。</p>
             </div>
+        </div>
+
+        <div class="window-status" id="windowStatusStrip">
+            <span class="ws-label">当前窗口实际尺寸</span>
+            <span class="ws-value" id="windowSize">—</span>
+            <span class="ws-meta" id="windowMeta">正在读取…</span>
         </div>
     </section>
 
@@ -859,6 +907,7 @@
             markDirty(false);
             clearErrors();
             setConnection(true);
+            loadWindowStatus();
         } catch (error) {
             setConnection(false);
             if (!silent) {
@@ -990,11 +1039,42 @@
             </div>${rows}`;
     }
 
+    function formatNumber(value) {
+        const number = Number(value);
+        return Number.isFinite(number) ? String(Math.round(number * 10) / 10) : '0';
+    }
+
+    async function loadWindowStatus() {
+        const sizeElement = $('windowSize');
+        const metaElement = $('windowMeta');
+        const strip = $('windowStatusStrip');
+
+        try {
+            const response = await fetch('/api/status', { cache: 'no-store' });
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+
+            const status = await response.json();
+            const scale = Math.round((status.DpiScaleX || 1) * 100);
+            const dip = `${formatNumber(status.WidthDip)} × ${formatNumber(status.HeightDip)} DIP`;
+            const state_ = status.IsMinimized ? '已最小化（Desktop）' : '正常显示';
+            const mode = status.CurrentMode ? ` · 模式 ${status.CurrentMode}` : '';
+
+            sizeElement.textContent = `${status.PixelWidth} × ${status.PixelHeight} px`;
+            metaElement.textContent = `${dip} · 缩放 ${scale}% · ${state_}${mode}`;
+            strip.classList.toggle('is-minimized', !!status.IsMinimized);
+        } catch (error) {
+            sizeElement.textContent = '—';
+            metaElement.textContent = '无法读取窗口状态（' + error.message + '）';
+            strip.classList.remove('is-minimized');
+        }
+    }
+
     function refreshDefaultModeOptions() {
         const select = $('defaultMode');
         const names = state.modes.map(mode => (mode.Mode || '').trim()).filter(Boolean);
         const options = [...new Set(names)];
         options.push('Blank');
+        options.push('Desktop');
 
         const desired = state.defaultMode || options[0];
         select.innerHTML = options.map(name =>
@@ -1137,6 +1217,7 @@
     loadConfig(false);
     setInterval(() => {
         if (!state.loaded) loadConfig(true);
+        loadWindowStatus();
     }, 5000);
 </script>
 </body>
