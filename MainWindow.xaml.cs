@@ -21,6 +21,7 @@ namespace CameraShow
         private readonly ConfigService _configService;
         private readonly AppConfig _config;
         private UdpControlService _udpService;
+        private WebSettingsService? _webService;
 
         private readonly Dictionary<string, CameraService> _cameraServices = new();
         private readonly Dictionary<ViewItem, Controls.CameraView> _cameraViews = new();
@@ -92,6 +93,8 @@ namespace CameraShow
                 LoggerService.Error("UDP 服务启动失败", ex);
             }
 
+            StartWebSettingsService();
+
             LoggerService.Info("主窗口构造完成");
         }
 
@@ -120,6 +123,7 @@ namespace CameraShow
             TrayIconManager.DesktopRequested += OnTrayDesktopRequested;
             TrayIconManager.ShutdownRequested += OnTrayShutdownRequested;
             TrayIconManager.SettingsRequested += OnTraySettingsRequested;
+            TrayIconManager.WebSettingsRequested += OnTrayWebSettingsRequested;
             TrayIconManager.ExitRequested += OnTrayExitRequested;
             TrayIconManager.RestoreRequested += OnTrayRestoreRequested;
         }
@@ -131,6 +135,7 @@ namespace CameraShow
             TrayIconManager.DesktopRequested -= OnTrayDesktopRequested;
             TrayIconManager.ShutdownRequested -= OnTrayShutdownRequested;
             TrayIconManager.SettingsRequested -= OnTraySettingsRequested;
+            TrayIconManager.WebSettingsRequested -= OnTrayWebSettingsRequested;
             TrayIconManager.ExitRequested -= OnTrayExitRequested;
             TrayIconManager.RestoreRequested -= OnTrayRestoreRequested;
         }
@@ -221,29 +226,38 @@ namespace CameraShow
         }
 
         /// <summary>
-        /// 将设置对话框返回的配置合并到运行中的配置对象，并立即生效
+        /// 将设置对话框 / 网页返回的配置合并到运行中的配置对象，并立即生效
         /// </summary>
-        private void ApplySettings(AppConfig updated)
+        /// <param name="updated">新的完整配置</param>
+        /// <param name="interactive">保存失败时是否弹窗提示（网页入口使用 false，仅记录日志）</param>
+        /// <returns>是否成功写入 config.json</returns>
+        private bool ApplySettings(AppConfig updated, bool interactive = true)
         {
             var udpChanged = !string.Equals(_config.PcName, updated.PcName, StringComparison.Ordinal)
                              || _config.UdpPort != updated.UdpPort;
+            var webPortChanged = _config.WebPort != updated.WebPort;
             var previousMode = _currentModeName;
 
             _config.PcName = updated.PcName;
             _config.UdpPort = updated.UdpPort;
+            _config.WebPort = updated.WebPort;
             _config.DefaultMode = updated.DefaultMode;
             _config.WindowWidth = updated.WindowWidth;
             _config.WindowHeight = updated.WindowHeight;
             _config.Modes = updated.Modes;
 
-            if (!_configService.Save(_config))
+            var saved = _configService.Save(_config);
+            if (!saved)
             {
                 LoggerService.Error("保存设置到 config.json 失败");
-                System.Windows.MessageBox.Show(
-                    "设置已应用，但写入 config.json 失败，请查看 Logs 文件夹中的日志了解详情。",
-                    "CameraShow",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
+                if (interactive)
+                {
+                    System.Windows.MessageBox.Show(
+                        "设置已应用，但写入 config.json 失败，请查看 Logs 文件夹中的日志了解详情。",
+                        "CameraShow",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                }
             }
 
             TrayIconManager.ReloadConfig(_config);
@@ -251,6 +265,11 @@ namespace CameraShow
             if (udpChanged)
             {
                 RestartUdpService();
+            }
+
+            if (webPortChanged)
+            {
+                RestartWebSettingsService();
             }
 
             if (WindowState == WindowState.Minimized)
@@ -280,7 +299,8 @@ namespace CameraShow
                 ApplyViewsLayout(targetMode);
             }
 
-            LoggerService.Info($"设置已保存并应用：PcName={_config.PcName}, UdpPort={_config.UdpPort}, DefaultMode={_config.DefaultMode}, 模式数={_config.Modes.Count}");
+            LoggerService.Info($"设置已保存并应用：PcName={_config.PcName}, UdpPort={_config.UdpPort}, WebPort={_config.WebPort}, DefaultMode={_config.DefaultMode}, 模式数={_config.Modes.Count}");
+            return saved;
         }
 
         private void RestartUdpService()
@@ -304,6 +324,122 @@ namespace CameraShow
             catch (Exception ex)
             {
                 LoggerService.Error("UDP 控制服务重启失败", ex);
+            }
+        }
+
+        private void OnTrayWebSettingsRequested()
+        {
+            if (_isShuttingDown) return;
+
+            Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(OpenWebSettingsPage));
+        }
+
+        /// <summary>
+        /// 在默认浏览器中打开本机网页设置页
+        /// </summary>
+        private void OpenWebSettingsPage()
+        {
+            if (_config.WebPort <= 0)
+            {
+                System.Windows.MessageBox.Show(
+                    "网页设置已在配置中关闭（WebPort = 0）。\n请先在 Settings... 中设置一个大于 0 的端口。",
+                    "CameraShow",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            var url = $"http://localhost:{_config.WebPort}/";
+            try
+            {
+                Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
+                LoggerService.Info($"已打开网页设置：{url}");
+            }
+            catch (Exception ex)
+            {
+                LoggerService.Error("打开网页设置失败", ex);
+                System.Windows.MessageBox.Show(
+                    $"无法打开浏览器：{ex.Message}\n\n可在浏览器中手动访问 {url}",
+                    "CameraShow",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
+        }
+
+        /// <summary>
+        /// 启动内嵌的网页设置服务（WebPort 为 0 时表示关闭）
+        /// </summary>
+        private void StartWebSettingsService()
+        {
+            if (_config.WebPort <= 0)
+            {
+                LoggerService.Info("网页设置服务未启用（WebPort = 0）");
+                return;
+            }
+
+            try
+            {
+                _webService = new WebSettingsService(_config.WebPort, GetConfigSnapshot, ApplySettingsFromWeb);
+                _webService.Start();
+            }
+            catch (Exception ex)
+            {
+                LoggerService.Error($"网页设置服务启动失败（端口 {_config.WebPort}）", ex);
+                _webService?.Dispose();
+                _webService = null;
+            }
+        }
+
+        private void RestartWebSettingsService()
+        {
+            try
+            {
+                _webService?.Dispose();
+            }
+            catch (Exception ex)
+            {
+                LoggerService.Error("停止旧的网页设置服务失败", ex);
+            }
+
+            _webService = null;
+            StartWebSettingsService();
+        }
+
+        /// <summary>
+        /// 供网页服务在后台线程读取配置副本，避免与 UI 线程修改冲突
+        /// </summary>
+        private AppConfig GetConfigSnapshot()
+        {
+            try
+            {
+                if (!_isShuttingDown && !Dispatcher.HasShutdownStarted)
+                {
+                    return Dispatcher.Invoke(() => ConfigValidator.Clone(_config));
+                }
+            }
+            catch (Exception ex)
+            {
+                LoggerService.Error("读取配置快照失败", ex);
+            }
+
+            return ConfigValidator.Clone(_config);
+        }
+
+        /// <summary>
+        /// 网页提交配置后，回到 UI 线程执行与设置对话框相同的应用流程
+        /// </summary>
+        private bool ApplySettingsFromWeb(AppConfig config)
+        {
+            if (_isShuttingDown) return false;
+
+            try
+            {
+                return Dispatcher.Invoke(() => ApplySettings(config, interactive: false));
+            }
+            catch (Exception ex)
+            {
+                LoggerService.Error("应用网页设置失败", ex);
+                return false;
             }
         }
 
@@ -458,6 +594,15 @@ namespace CameraShow
                 catch (Exception ex)
                 {
                     LoggerService.Error("关闭 UDP 控制服务失败", ex);
+                }
+
+                try
+                {
+                    _webService?.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    LoggerService.Error("关闭网页设置服务失败", ex);
                 }
             });
 

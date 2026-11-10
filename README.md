@@ -10,6 +10,7 @@ CameraShow 是一个基于 .NET Framework 4.7.2 的 WPF 桌面应用程序，用
 - 多种布局模式切换
 - 系统托盘运行（最小化到任务栏右下角）
 - 托盘菜单 **Settings...** 打开设置对话框，直接编辑 config.json 参数并立即生效
+- 远程网页设置：默认端口 8000，局域网内用浏览器即可修改配置（托盘菜单 **Web Settings...** 快速打开）
 - 可自定义的视图布局
 - 实时摄像头帧显示
 
@@ -38,6 +39,7 @@ CameraShow/
 ├── MainWindow.xaml.cs     # 主窗口逻辑
 ├── CameraShow.csproj      # 项目配置
 ├── config.json            # 配置文件
+├── Web/WebPanel.html      # 内嵌的远程网页设置页面
 ├── bin/                   # 构建输出目录
 └── Resources/             # 资源文件夹 (图标等)
 ```
@@ -53,12 +55,34 @@ CameraShow/
 
 | 选项卡 | 可修改内容 |
 | --- | --- |
-| 基本设置 | 计算机名（PcName）、UDP 端口（UdpPort）、默认模式（DefaultMode）、窗口宽高（WindowWidth / WindowHeight，任一项为 0 表示铺满全屏） |
+| 基本设置 | 计算机名（PcName）、UDP 端口（UdpPort）、网页设置端口（WebPort）、默认模式（DefaultMode）、窗口宽高（WindowWidth / WindowHeight，任一项为 0 表示铺满全屏） |
 | 布局模式 | 新增/删除模式，修改模式名称，编辑每个视图的摄像头、宽（W）与高（H），每个模式最多 2 个视图 |
 | 摄像头 | 查看程序启动时自动扫描到的摄像头（该清单每次启动都会被重新生成并覆盖配置文件） |
 
 点击 **保存并应用** 后配置会写入 `config.json` 并立即生效：窗口尺寸、当前布局与托盘菜单都会刷新；
-若修改了计算机名或 UDP 端口，UDP 控制服务会自动按新参数重启。配置项含义与写入的 JSON 字段一一对应。
+若修改了计算机名或 UDP 端口，UDP 控制服务会自动按新参数重启；若修改了网页设置端口，网页设置服务也会自动重启（端口填 0 表示关闭网页设置）。配置项含义与写入的 JSON 字段一一对应。
+
+#### 远程网页设置
+
+程序内置一个轻量 HTTP 服务，默认监听 **8000** 端口（`config.json` 中的 `WebPort`，`0` 表示关闭），
+局域网内的手机、平板或其他电脑用浏览器访问即可：
+
+```
+http://<运行 CameraShow 的电脑 IP>:8000/
+```
+
+页面提供与桌面设置对话框相同的编辑能力（基本参数、布局模式、摄像头清单），点击「保存并应用」后同样立即生效；
+托盘菜单的 **Web Settings...** 会用默认浏览器直接打开 `http://localhost:<WebPort>/`。
+
+相关接口（供页面自身使用）：
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/` | 网页设置页面 |
+| GET | `/api/config` | 返回当前配置 JSON |
+| POST | `/api/config` | 提交完整配置并应用，成功返回 `{ "ok": true }`，校验失败返回 400 与 `errors` 列表 |
+
+> 该服务不带身份验证，仅应部署在可信的局域网内；如不需要请将 `WebPort` 设为 `0` 关闭。
 
 ### 构建说明
 项目使用 `Microsoft.NET.Sdk.WindowsDesktop` SDK 目标 .NET Framework 4.7.2。

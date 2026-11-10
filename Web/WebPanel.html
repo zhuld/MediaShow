@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>CameraShow · 远程设置</title>
+<style>
+    :root {
+        --bg: #080b10;
+        --bg-elev: #0e141c;
+        --panel: #121a24;
+        --panel-soft: #0f1720;
+        --line: #1d2937;
+        --line-strong: #2b3d50;
+        --text: #e8eff7;
+        --muted: #8296aa;
+        --faint: #5a6d80;
+        --accent: #43e3c6;
+        --accent-ink: #04211d;
+        --accent-soft: rgba(67, 227, 198, .12);
+        --warn: #ffb454;
+        --danger: #ff6f6f;
+        --radius: 12px;
+        --mono: "Cascadia Mono", "JetBrains Mono", "SFMono-Regular", Consolas, ui-monospace, monospace;
+        --display: "Bahnschrift SemiCondensed", "Bahnschrift", "DIN Alternate", "Microsoft YaHei UI", sans-serif;
+        --body: "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", "Segoe UI", system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { height: 100%; }
+
+    body {
+        margin: 0;
+        background:
+            radial-gradient(1100px 620px at 8% -10%, rgba(67, 227, 198, .10), transparent 60%),
+            radial-gradient(900px 500px at 105% 0%, rgba(86, 132, 255, .08), transparent 55%),
+            linear-gradient(rgba(255, 255, 255, .022) 1px, transparent 1px) 0 0 / 100% 44px,
+            linear-gradient(90deg, rgba(255, 255, 255, .022) 1px, transparent 1px) 0 0 / 44px 100%,
+            var(--bg);
+        color: var(--text);
+        font-family: var(--body);
+        font-size: 14px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+        padding-bottom: 92px;
+    }
+
+    ::selection { background: var(--accent); color: var(--accent-ink); }
+
+    .shell {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 0 22px;
+    }
+
+    /* ---------- header ---------- */
+
+    header.topbar {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        backdrop-filter: blur(14px);
+        background: linear-gradient(180deg, rgba(8, 11, 16, .94), rgba(8, 11, 16, .78));
+        border-bottom: 1px solid var(--line);
+    }
+
+    .topbar-inner {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        padding: 16px 22px 15px;
+        max-width: 1180px;
+        margin: 0 auto;
+        flex-wrap: wrap;
+    }
+
+    .brand {
+        display: flex;
+        align-items: center;
+        gap: 13px;
+        margin-right: auto;
+    }
+
+    .mark {
+        width: 42px;
+        height: 42px;
+        border-radius: 11px;
+        display: grid;
+        place-items: center;
+        background: linear-gradient(150deg, #1a2c34, #0d1a21);
+        border: 1px solid var(--line-strong);
+        box-shadow: inset 0 0 22px rgba(67, 227, 198, .16), 0 8px 22px rgba(0, 0, 0, .45);
+    }
+
+    .mark svg { width: 22px; height: 22px; }
+
+    .brand-text .name {
+        font-family: var(--display);
+        font-size: 21px;
+        letter-spacing: .12em;
+        line-height: 1.05;
+        font-weight: 600;
+    }
+
+    .brand-text .sub {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        letter-spacing: .22em;
+        color: var(--muted);
+        text-transform: uppercase;
+        margin-top: 3px;
+    }
+
+    .stat-chip {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 7px;
+        padding: 7px 12px;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        background: var(--panel-soft);
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--muted);
+        letter-spacing: .06em;
+    }
+
+    .stat-chip b {
+        font-family: var(--display);
+        font-size: 16px;
+        color: var(--text);
+        font-weight: 600;
+    }
+
+    .conn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: .1em;
+        color: var(--muted);
+        padding: 7px 12px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--panel-soft);
+    }
+
+    .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 0 0 rgba(67, 227, 198, .55);
+        animation: pulse 2.4s ease-out infinite;
+    }
+
+    .conn.is-offline .dot { background: var(--danger); animation: none; box-shadow: none; }
+    .conn.is-offline { color: var(--danger); }
+
+    @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(67, 227, 198, .45); }
+        70% { box-shadow: 0 0 0 9px rgba(67, 227, 198, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(67, 227, 198, 0); }
+    }
+
+    .topbar-line {
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(67, 227, 198, .55), rgba(86, 132, 255, .35), transparent);
+        opacity: .55;
+    }
+
+    /* ---------- panels ---------- */
+
+    main { padding-top: 30px; }
+
+    .panel {
+        background: linear-gradient(168deg, var(--panel) 0%, var(--panel-soft) 100%);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 26px 26px 24px;
+        margin-bottom: 22px;
+        box-shadow: 0 18px 40px -28px rgba(0, 0, 0, .9);
+        animation: rise .55s cubic-bezier(.2, .8, .25, 1) backwards;
+    }
+
+    .panel:nth-of-type(1) { animation-delay: .03s; }
+    .panel:nth-of-type(2) { animation-delay: .1s; }
+    .panel:nth-of-type(3) { animation-delay: .17s; }
+
+    @keyframes rise {
+        from { opacity: 0; transform: translateY(14px); }
+        to { opacity: 1; transform: none; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .panel, .dot { animation: none !important; }
+    }
+
+    .panel-head {
+        display: flex;
+        align-items: flex-start;
+        gap: 16px;
+        margin-bottom: 22px;
+        flex-wrap: wrap;
+    }
+
+    .panel-num {
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: .18em;
+        color: var(--accent);
+        border: 1px solid rgba(67, 227, 198, .3);
+        background: var(--accent-soft);
+        border-radius: 6px;
+        padding: 4px 8px;
+        margin-top: 2px;
+    }
+
+    .panel-title {
+        font-family: var(--display);
+        font-size: 19px;
+        letter-spacing: .06em;
+        font-weight: 600;
+        margin: 0;
+    }
+
+    .panel-desc {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 12.5px;
+        max-width: 62ch;
+    }
+
+    /* ---------- fields ---------- */
+
+    .grid-fields {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px 22px;
+    }
+
+    .field.wide { grid-column: 1 / -1; }
+
+    .field label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12.5px;
+        font-weight: 600;
+        letter-spacing: .02em;
+        margin-bottom: 7px;
+    }
+
+    .key {
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: .08em;
+        color: var(--faint);
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        padding: 1px 5px;
+        font-weight: 400;
+    }
+
+    .hint {
+        margin: 6px 0 0;
+        font-size: 11.5px;
+        color: var(--faint);
+        line-height: 1.45;
+    }
+
+    input[type="text"], input[type="number"], select {
+        width: 100%;
+        padding: 10px 12px;
+        background: #0a1118;
+        border: 1px solid var(--line-strong);
+        border-radius: 8px;
+        color: var(--text);
+        font-family: var(--body);
+        font-size: 13.5px;
+        outline: none;
+        transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+        appearance: none;
+    }
+
+    input[type="number"] { font-family: var(--mono); letter-spacing: .03em; }
+
+    select {
+        background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+        background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%;
+        background-size: 5px 5px, 5px 5px;
+        background-repeat: no-repeat;
+        padding-right: 34px;
+        cursor: pointer;
+    }
+
+    input:focus, select:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(67, 227, 198, .16);
+        background: #0b141b;
+    }
+
+    input:hover, select:hover { border-color: #3a5169; }
+
+    input::placeholder { color: var(--faint); }
+
+    .size-pair {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .size-pair .x {
+        color: var(--faint);
+        font-family: var(--mono);
+        padding-top: 22px;
+    }
+
+    .sub-label {
+        display: block;
+        font-family: var(--mono);
+        font-size: 10.5px;
+        letter-spacing: .08em;
+        color: var(--faint);
+        margin-bottom: 5px;
+    }
+
+    /* ---------- modes ---------- */
+
+    .modes-layout {
+        display: grid;
+        grid-template-columns: 240px minmax(0, 1fr);
+        gap: 20px;
+        align-items: start;
+    }
+
+    .mode-list {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        border-right: 1px solid var(--line);
+        padding-right: 18px;
+    }
+
+    .mode-tab {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        text-align: left;
+        padding: 10px 12px;
+        border-radius: 9px;
+        border: 1px solid transparent;
+        background: transparent;
+        color: var(--muted);
+        font-family: var(--body);
+        font-size: 13.5px;
+        cursor: pointer;
+        transition: background .16s ease, color .16s ease, border-color .16s ease, transform .16s ease;
+    }
+
+    .mode-tab:hover { background: rgba(255, 255, 255, .035); color: var(--text); transform: translateX(2px); }
+
+    .mode-tab.is-active {
+        background: var(--accent-soft);
+        border-color: rgba(67, 227, 198, .32);
+        color: var(--text);
+        box-shadow: inset 3px 0 0 var(--accent);
+    }
+
+    .mode-tab .count {
+        margin-left: auto;
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--faint);
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        padding: 1px 6px;
+    }
+
+    .mode-tab.is-active .count { color: var(--accent); border-color: rgba(67, 227, 198, .35); }
+
+    .mode-tab-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .mode-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+    .editor { min-width: 0; }
+
+    .editor-head { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+
+    .editor-head .field { flex: 1 1 240px; }
+
+    .view-table { display: flex; flex-direction: column; gap: 8px; }
+
+    .view-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1.6fr) 96px 96px 36px;
+        gap: 10px;
+        align-items: center;
+        padding: 10px;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        background: rgba(9, 15, 21, .6);
+    }
+
+    .view-empty {
+        border: 1px dashed var(--line-strong);
+        border-radius: 9px;
+        padding: 22px;
+        text-align: center;
+        color: var(--faint);
+        font-size: 12.5px;
+    }
+
+    .row-foot { display: flex; align-items: center; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+
+    .row-foot .hint { margin: 0; }
+
+    /* ---------- buttons ---------- */
+
+    button {
+        font-family: var(--body);
+        font-size: 13px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: transform .14s ease, background .16s ease, border-color .16s ease, color .16s ease, opacity .16s ease;
+    }
+
+    button:active:not(:disabled) { transform: translateY(1px) scale(.995); }
+
+    button:disabled { opacity: .45; cursor: not-allowed; }
+
+    .btn {
+        padding: 9px 15px;
+        border: 1px solid var(--line-strong);
+        background: #101821;
+        color: var(--text);
+        letter-spacing: .02em;
+    }
+
+    .btn:hover:not(:disabled) { border-color: #3d5872; background: #131e29; }
+
+    .btn-ghost { background: transparent; color: var(--muted); border-color: var(--line); }
+
+    .btn-ghost:hover:not(:disabled) { color: var(--text); border-color: var(--line-strong); background: rgba(255, 255, 255, .03); }
+
+    .btn-primary {
+        padding: 12px 26px;
+        border: 1px solid transparent;
+        background: var(--accent);
+        color: var(--accent-ink);
+        font-weight: 700;
+        letter-spacing: .05em;
+        box-shadow: 0 10px 26px -12px rgba(67, 227, 198, .75);
+    }
+
+    .btn-primary:hover:not(:disabled) { background: #5df0d5; transform: translateY(-1px); }
+
+    .btn-icon {
+        width: 36px;
+        height: 36px;
+        display: grid;
+        place-items: center;
+        border: 1px solid var(--line);
+        background: transparent;
+        color: var(--faint);
+        padding: 0;
+    }
+
+    .btn-icon:hover:not(:disabled) { color: var(--danger); border-color: rgba(255, 111, 111, .4); background: rgba(255, 111, 111, .08); }
+
+    .btn-icon svg { width: 15px; height: 15px; }
+
+    /* ---------- cameras ---------- */
+
+    .camera-table { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+
+    .camera-row {
+        display: grid;
+        grid-template-columns: 110px minmax(0, 1fr) 80px 130px;
+        gap: 14px;
+        padding: 12px 16px;
+        font-size: 13px;
+        border-bottom: 1px solid var(--line);
+        align-items: center;
+    }
+
+    .camera-row:last-child { border-bottom: none; }
+
+    .camera-row.head {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        letter-spacing: .14em;
+        text-transform: uppercase;
+        color: var(--faint);
+        background: rgba(255, 255, 255, .022);
+    }
+
+    .camera-row .id { font-family: var(--mono); color: var(--accent); font-size: 12px; }
+
+    .camera-row .num { font-family: var(--mono); color: var(--muted); }
+
+    .camera-row.empty { display: block; color: var(--faint); text-align: center; padding: 24px; }
+
+    /* ---------- alerts / footer ---------- */
+
+    .alert {
+        display: none;
+        border-radius: 10px;
+        padding: 13px 16px;
+        margin-bottom: 18px;
+        font-size: 13px;
+        border: 1px solid rgba(255, 111, 111, .35);
+        background: rgba(255, 111, 111, .09);
+        color: #ffc9c9;
+    }
+
+    .alert.is-visible { display: block; animation: rise .3s ease backwards; }
+
+    .alert ul { margin: 6px 0 0; padding-left: 18px; }
+    .alert li { margin: 2px 0; }
+
+    .savebar {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 30;
+        backdrop-filter: blur(14px);
+        background: linear-gradient(180deg, rgba(8, 11, 16, .72), rgba(8, 11, 16, .96));
+        border-top: 1px solid var(--line);
+    }
+
+    .savebar-inner {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 14px 22px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        flex-wrap: wrap;
+    }
+
+    .dirty-flag {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: .1em;
+        color: var(--faint);
+        text-transform: uppercase;
+    }
+
+    .dirty-flag .dot { background: var(--faint); animation: none; box-shadow: none; }
+
+    .dirty-flag.is-dirty { color: var(--warn); }
+    .dirty-flag.is-dirty .dot { background: var(--warn); }
+
+    .savebar .spacer { margin-left: auto; }
+
+    .toast {
+        position: fixed;
+        right: 22px;
+        bottom: 88px;
+        z-index: 40;
+        min-width: 220px;
+        max-width: 380px;
+        padding: 13px 16px;
+        border-radius: 10px;
+        border: 1px solid rgba(67, 227, 198, .4);
+        background: rgba(9, 30, 27, .96);
+        color: #c9fff4;
+        font-size: 13px;
+        box-shadow: 0 22px 46px -20px rgba(0, 0, 0, .9);
+        opacity: 0;
+        transform: translateY(10px);
+        pointer-events: none;
+        transition: opacity .22s ease, transform .22s ease;
+    }
+
+    .toast.is-visible { opacity: 1; transform: none; }
+
+    .toast.is-error { border-color: rgba(255, 111, 111, .45); background: rgba(38, 12, 12, .96); color: #ffd2d2; }
+
+    .footer-note {
+        color: var(--faint);
+        font-size: 11.5px;
+        font-family: var(--mono);
+        letter-spacing: .04em;
+        text-align: center;
+        padding: 4px 0 16px;
+    }
+
+    .mode-actions-mobile { display: none; }
+
+    @media (max-width: 900px) {
+        .grid-fields { grid-template-columns: 1fr; }
+        .modes-layout { grid-template-columns: 1fr; }
+        .mode-list { border-right: none; border-bottom: 1px solid var(--line); padding: 0 0 14px; flex-direction: row; overflow-x: auto; }
+        .mode-tab { width: auto; white-space: nowrap; }
+        .mode-actions { display: none; }
+        .mode-actions-mobile { display: flex; gap: 8px; margin-bottom: 14px; }
+        .view-row { grid-template-columns: 1fr 1fr 36px; }
+        .view-row .camera-cell { grid-column: 1 / -1; }
+        .camera-row { grid-template-columns: 1fr auto; gap: 6px 12px; }
+        .camera-row.head { display: none; }
+        .camera-row .id { grid-column: 1 / -1; }
+        .stat-chip { display: none; }
+    }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+    <div class="topbar-inner">
+        <div class="brand">
+            <div class="mark" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#43e3c6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2.5" y="6.5" width="13" height="11" rx="2.5"></rect>
+                    <path d="M15.5 11.2l5.2-3v7.6l-5.2-3z"></path>
+                    <circle cx="9" cy="12" r="2.4"></circle>
+                </svg>
+            </div>
+            <div class="brand-text">
+                <div class="name">CAMERASHOW</div>
+                <div class="sub">Remote config console</div>
+            </div>
+        </div>
+
+        <span class="stat-chip"><b id="statModes">0</b> MODES</span>
+        <span class="stat-chip"><b id="statCameras">0</b> CAMS</span>
+        <span class="conn" id="connState"><span class="dot"></span><span id="connText">CONNECTING</span></span>
+    </div>
+    <div class="topbar-line"></div>
+</header>
+
+<main class="shell">
+    <div class="alert" id="alertBox"></div>
+
+    <section class="panel">
+        <div class="panel-head">
+            <span class="panel-num">01</span>
+            <div>
+                <h2 class="panel-title">基本参数</h2>
+                <p class="panel-desc">对应 config.json 中的基础字段，保存后立即应用到本机程序。</p>
+            </div>
+        </div>
+
+        <div class="grid-fields">
+            <div class="field">
+                <label for="pcName">计算机名 <span class="key">PcName</span></label>
+                <input type="text" id="pcName" autocomplete="off" spellcheck="false" placeholder="PC_1">
+                <p class="hint">UDP 指令格式为「计算机名-模式名」，不能包含「-」。</p>
+            </div>
+
+            <div class="field">
+                <label for="defaultMode">默认模式 <span class="key">DefaultMode</span></label>
+                <select id="defaultMode"></select>
+                <p class="hint">程序启动时使用的布局，可选「Blank」纯黑屏。</p>
+            </div>
+
+            <div class="field">
+                <label for="udpPort">UDP 控制端口 <span class="key">UdpPort</span></label>
+                <input type="number" id="udpPort" min="1" max="65535" inputmode="numeric" placeholder="30000">
+                <p class="hint">接收「计算机名-模式名」远程切换指令，1～65535。</p>
+            </div>
+
+            <div class="field">
+                <label for="webPort">网页设置端口 <span class="key">WebPort</span></label>
+                <input type="number" id="webPort" min="0" max="65535" inputmode="numeric" placeholder="8000">
+                <p class="hint">当前页面所用端口，0 表示关闭网页设置；修改后服务会自动重启。</p>
+            </div>
+
+            <div class="field wide">
+                <label>窗口尺寸 <span class="key">WindowWidth / WindowHeight</span></label>
+                <div class="size-pair">
+                    <div>
+                        <span class="sub-label">宽度（像素）</span>
+                        <input type="number" id="windowWidth" min="0" inputmode="numeric" placeholder="0">
+                    </div>
+                    <span class="x">×</span>
+                    <div>
+                        <span class="sub-label">高度（像素）</span>
+                        <input type="number" id="windowHeight" min="0" inputmode="numeric" placeholder="720">
+                    </div>
+                </div>
+                <p class="hint">任一项为 0 表示铺满全屏（例如 0 / 720）。</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="panel-head">
+            <span class="panel-num">02</span>
+            <div>
+                <h2 class="panel-title">布局模式</h2>
+                <p class="panel-desc">每个模式最多显示 2 个视图，按顺序左右排列；宽高为像素值。</p>
+            </div>
+        </div>
+
+        <div class="modes-layout">
+            <div>
+                <div class="mode-list" id="modeList"></div>
+                <div class="mode-actions">
+                    <button class="btn btn-ghost" id="addModeBtn" type="button">＋ 新模式</button>
+                    <button class="btn btn-ghost" id="removeModeBtn" type="button">删除</button>
+                </div>
+            </div>
+
+            <div class="editor">
+                <div class="mode-actions-mobile">
+                    <button class="btn btn-ghost" id="addModeBtnMobile" type="button">＋ 新模式</button>
+                    <button class="btn btn-ghost" id="removeModeBtnMobile" type="button">删除当前模式</button>
+                </div>
+                <div class="editor-head">
+                    <div class="field">
+                        <label for="modeName">模式名称 <span class="key">Mode</span></label>
+                        <input type="text" id="modeName" autocomplete="off" spellcheck="false" placeholder="Single">
+                    </div>
+                </div>
+
+                <div class="view-table" id="viewTable"></div>
+
+                <div class="row-foot">
+                    <button class="btn" id="addViewBtn" type="button">＋ 添加视图</button>
+                    <p class="hint" id="viewHint">一个模式最多 2 个视图。</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="panel-head">
+            <span class="panel-num">03</span>
+            <div>
+                <h2 class="panel-title">摄像头清单</h2>
+                <p class="panel-desc">程序每次启动都会重新扫描并覆盖该清单，这里仅作查看；视图归属在上一节修改。</p>
+            </div>
+        </div>
+        <div class="camera-table" id="cameraTable"></div>
+    </section>
+
+    <p class="footer-note">CONFIG WRITTEN BY CAMERASHOW · REMOTE PANEL</p>
+</main>
+
+<div class="savebar">
+    <div class="savebar-inner">
+        <span class="dirty-flag" id="dirtyFlag"><span class="dot"></span><span id="dirtyText">与已保存配置一致</span></span>
+        <div class="spacer"></div>
+        <button class="btn btn-ghost" id="reloadBtn" type="button">重新加载</button>
+        <button class="btn-primary" id="saveBtn" type="button">保存并应用</button>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+    const state = {
+        cameras: [],
+        modes: [],
+        selected: 0,
+        defaultMode: '',
+        dirty: false,
+        saving: false,
+        loaded: false
+    };
+
+    const $ = (id) => document.getElementById(id);
+    const basicFields = {
+        PcName: $('pcName'),
+        UdpPort: $('udpPort'),
+        WebPort: $('webPort'),
+        WindowWidth: $('windowWidth'),
+        WindowHeight: $('windowHeight')
+    };
+
+    function setConnection(online) {
+        $('connState').classList.toggle('is-offline', !online);
+        $('connText').textContent = online ? 'CONNECTED' : 'OFFLINE';
+    }
+
+    function markDirty(dirty) {
+        state.dirty = dirty;
+        const flag = $('dirtyFlag');
+        flag.classList.toggle('is-dirty', dirty);
+        $('dirtyText').textContent = dirty ? '有未保存的修改' : '与已保存配置一致';
+    }
+
+    function showErrors(errors) {
+        const box = $('alertBox');
+        const list = errors.map(e => `<li>${escapeHtml(e)}</li>`).join('');
+        box.innerHTML = `<strong>无法保存配置</strong><ul>${list}</ul>`;
+        box.classList.add('is-visible');
+        box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function clearErrors() {
+        const box = $('alertBox');
+        box.classList.remove('is-visible');
+        box.innerHTML = '';
+    }
+
+    let toastTimer = null;
+    function toast(message, isError) {
+        const el = $('toast');
+        el.textContent = message;
+        el.classList.toggle('is-error', !!isError);
+        el.classList.add('is-visible');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => el.classList.remove('is-visible'), 3200);
+    }
+
+    function escapeHtml(value) {
+        return String(value == null ? '' : value)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function currentMode() {
+        return state.modes[state.selected] || null;
+    }
+
+    async function loadConfig(silent) {
+        try {
+            const response = await fetch('/api/config', { cache: 'no-store' });
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            const config = await response.json();
+
+            state.cameras = config.CameraSources || [];
+            state.modes = (config.Modes || []).map(mode => ({
+                Mode: mode.Mode || '',
+                Views: (mode.Views || []).map(view => ({
+                    CameraId: view.CameraId || '',
+                    W: String(view.W),
+                    H: String(view.H)
+                }))
+            }));
+            if (state.selected >= state.modes.length) {
+                state.selected = Math.max(state.modes.length - 1, 0);
+            }
+
+            basicFields.PcName.value = config.PcName || '';
+            basicFields.UdpPort.value = String(config.UdpPort);
+            basicFields.WebPort.value = String(config.WebPort);
+            basicFields.WindowWidth.value = String(config.WindowWidth);
+            basicFields.WindowHeight.value = String(config.WindowHeight);
+            state.defaultMode = config.DefaultMode || '';
+
+            $('statModes').textContent = state.modes.length;
+            $('statCameras').textContent = state.cameras.length;
+
+            state.loaded = true;
+            renderAll();
+            markDirty(false);
+            clearErrors();
+            setConnection(true);
+        } catch (error) {
+            setConnection(false);
+            if (!silent) {
+                showErrors(['无法读取配置：' + error.message + '（请确认程序正在运行且端口正确）']);
+            }
+        }
+    }
+
+    function renderAll() {
+        renderModeList();
+        renderModeEditor();
+        renderCameras();
+        refreshDefaultModeOptions();
+    }
+
+    function renderModeList() {
+        const list = $('modeList');
+        list.innerHTML = state.modes.map((mode, index) => `
+            <button type="button" class="mode-tab ${index === state.selected ? 'is-active' : ''}" data-index="${index}">
+                <span class="mode-tab-name">${escapeHtml(mode.Mode || '(未命名)')}</span>
+                <span class="count">${mode.Views.length}</span>
+            </button>
+        `).join('') || '<p class="hint">还没有布局模式，点击下方「新模式」创建。</p>';
+
+        list.querySelectorAll('.mode-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                state.selected = Number(tab.dataset.index);
+                renderModeList();
+                renderModeEditor();
+            });
+        });
+    }
+
+    function cameraOptions(selectedId) {
+        const options = ['<option value="">(不显示)</option>'];
+        for (const camera of state.cameras) {
+            const selected = camera.Id === selectedId ? 'selected' : '';
+            const label = camera.Name ? `${camera.Name} · ${camera.Id}` : camera.Id;
+            options.push(`<option value="${escapeHtml(camera.Id)}" ${selected}>${escapeHtml(label)}</option>`);
+        }
+        return options.join('');
+    }
+
+    function renderModeEditor() {
+        const mode = currentMode();
+        const nameInput = $('modeName');
+        const table = $('viewTable');
+
+        if (!mode) {
+            nameInput.value = '';
+            nameInput.disabled = true;
+            table.innerHTML = '<div class="view-empty">暂无布局模式</div>';
+            $('addViewBtn').disabled = true;
+            $('removeModeBtn').disabled = true;
+            $('removeModeBtnMobile').disabled = true;
+            return;
+        }
+
+        nameInput.disabled = false;
+        nameInput.value = mode.Mode;
+        $('removeModeBtn').disabled = false;
+        $('removeModeBtnMobile').disabled = false;
+        $('addViewBtn').disabled = mode.Views.length >= 2;
+
+        table.innerHTML = mode.Views.map((view, index) => `
+            <div class="view-row" data-index="${index}">
+                <div class="camera-cell">
+                    <span class="sub-label">摄像头</span>
+                    <select data-role="camera">${cameraOptions(view.CameraId)}</select>
+                </div>
+                <div>
+                    <span class="sub-label">宽 W</span>
+                    <input type="number" data-role="w" min="1" step="1" value="${escapeHtml(view.W)}">
+                </div>
+                <div>
+                    <span class="sub-label">高 H</span>
+                    <input type="number" data-role="h" min="1" step="1" value="${escapeHtml(view.H)}">
+                </div>
+                <button type="button" class="btn-icon" data-role="remove" title="删除该视图">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                        <path d="M5 7h14M10 11v6M14 11v6M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2"></path>
+                    </svg>
+                </button>
+            </div>
+        `).join('') || '<div class="view-empty">该模式没有视图，可添加 1～2 个。</div>';
+
+        table.querySelectorAll('.view-row').forEach(row => {
+            const index = Number(row.dataset.index);
+            row.querySelector('[data-role="camera"]').addEventListener('change', event => {
+                mode.Views[index].CameraId = event.target.value;
+                markDirty(true);
+            });
+            row.querySelector('[data-role="w"]').addEventListener('input', event => {
+                mode.Views[index].W = event.target.value;
+                markDirty(true);
+            });
+            row.querySelector('[data-role="h"]').addEventListener('input', event => {
+                mode.Views[index].H = event.target.value;
+                markDirty(true);
+            });
+            row.querySelector('[data-role="remove"]').addEventListener('click', () => {
+                mode.Views.splice(index, 1);
+                renderModeList();
+                renderModeEditor();
+                markDirty(true);
+            });
+        });
+    }
+
+    function renderCameras() {
+        const table = $('cameraTable');
+        if (!state.cameras.length) {
+            table.innerHTML = '<div class="camera-row empty">未检测到本地摄像头</div>';
+            return;
+        }
+
+        const rows = state.cameras.map(camera => `
+            <div class="camera-row">
+                <span class="id">${escapeHtml(camera.Id)}</span>
+                <span>${escapeHtml(camera.Name || '(未命名)')}</span>
+                <span class="num">#${escapeHtml(camera.Index)}</span>
+                <span class="num">${escapeHtml(camera.Width)}×${escapeHtml(camera.Height)}</span>
+            </div>
+        `).join('');
+
+        table.innerHTML = `
+            <div class="camera-row head">
+                <span>ID</span><span>名称</span><span>索引</span><span>分辨率</span>
+            </div>${rows}`;
+    }
+
+    function refreshDefaultModeOptions() {
+        const select = $('defaultMode');
+        const names = state.modes.map(mode => (mode.Mode || '').trim()).filter(Boolean);
+        const options = [...new Set(names)];
+        options.push('Blank');
+
+        const desired = state.defaultMode || options[0];
+        select.innerHTML = options.map(name =>
+            `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
+
+        const matched = options.find(name => name.toLowerCase() === desired.toLowerCase()) || options[0];
+        select.value = matched;
+        state.defaultMode = matched;
+    }
+
+    function buildPayload() {
+        return {
+            PcName: basicFields.PcName.value.trim(),
+            UdpPort: Number(basicFields.UdpPort.value),
+            WebPort: Number(basicFields.WebPort.value),
+            DefaultMode: $('defaultMode').value,
+            WindowWidth: Number(basicFields.WindowWidth.value),
+            WindowHeight: Number(basicFields.WindowHeight.value),
+            CameraSources: state.cameras,
+            Modes: state.modes.map(mode => ({
+                Mode: (mode.Mode || '').trim(),
+                Views: mode.Views.map(view => ({
+                    CameraId: view.CameraId || '',
+                    W: Number(view.W),
+                    H: Number(view.H)
+                }))
+            }))
+        };
+    }
+
+    async function save() {
+        if (state.saving) return;
+        clearErrors();
+        state.saving = true;
+        const button = $('saveBtn');
+        button.disabled = true;
+        button.textContent = '正在保存…';
+
+        try {
+            const response = await fetch('/api/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(buildPayload())
+            });
+            const result = await response.json().catch(() => ({ ok: false, errors: ['服务器返回了无法解析的响应'] }));
+
+            if (response.ok && result.ok) {
+                toast('配置已保存并生效', false);
+                await loadConfig(true);
+            } else {
+                showErrors(result.errors || [result.message || ('保存失败（HTTP ' + response.status + '）')]);
+                toast('保存失败，请检查输入', true);
+            }
+        } catch (error) {
+            showErrors(['无法连接程序：' + error.message]);
+            toast('保存失败', true);
+        } finally {
+            state.saving = false;
+            button.disabled = false;
+            button.textContent = '保存并应用';
+        }
+    }
+
+    function newModeName() {
+        let index = state.modes.length + 1;
+        let name;
+        do { name = 'Mode' + index++; }
+        while (state.modes.some(mode => mode.Mode.toLowerCase() === name.toLowerCase()));
+        return name;
+    }
+
+    function addMode() {
+        const name = newModeName();
+        const cameraId = state.cameras.length ? state.cameras[0].Id : '';
+        state.modes.push({ Mode: name, Views: [{ CameraId: cameraId, W: '640', H: '480' }] });
+        state.selected = state.modes.length - 1;
+        renderAll();
+        markDirty(true);
+    }
+
+    function removeMode() {
+        if (!currentMode()) return;
+        if (!confirm('确定删除模式「' + (currentMode().Mode || '(未命名)') + '」吗？')) return;
+        state.modes.splice(state.selected, 1);
+        state.selected = Math.min(state.selected, Math.max(state.modes.length - 1, 0));
+        renderAll();
+        markDirty(true);
+    }
+
+    function addView() {
+        const mode = currentMode();
+        if (!mode || mode.Views.length >= 2) return;
+        const cameraId = state.cameras.length > mode.Views.length
+            ? state.cameras[mode.Views.length].Id
+            : '';
+        mode.Views.push({ CameraId: cameraId, W: '640', H: '480' });
+        renderModeList();
+        renderModeEditor();
+        markDirty(true);
+    }
+
+    Object.entries(basicFields).forEach(([name, input]) => {
+        input.addEventListener('input', () => {
+            markDirty(true);
+            if (name === 'PcName' || name === 'UdpPort' || name === 'WebPort') clearErrors();
+        });
+    });
+
+    $('defaultMode').addEventListener('change', event => {
+        state.defaultMode = event.target.value;
+        markDirty(true);
+    });
+
+    $('modeName').addEventListener('input', event => {
+        const mode = currentMode();
+        if (!mode) return;
+        mode.Mode = event.target.value;
+        renderModeList();
+        refreshDefaultModeOptions();
+        markDirty(true);
+    });
+
+    $('addModeBtn').addEventListener('click', addMode);
+    $('addModeBtnMobile').addEventListener('click', addMode);
+    $('removeModeBtn').addEventListener('click', removeMode);
+    $('removeModeBtnMobile').addEventListener('click', removeMode);
+    $('addViewBtn').addEventListener('click', addView);
+    $('saveBtn').addEventListener('click', save);
+    $('reloadBtn').addEventListener('click', () => {
+        if (state.dirty && !confirm('放弃未保存的修改并重新加载？')) return;
+        loadConfig(false);
+    });
+
+    window.addEventListener('beforeunload', event => {
+        if (!state.dirty) return;
+        event.preventDefault();
+        event.returnValue = '';
+    });
+
+    loadConfig(false);
+    setInterval(() => {
+        if (!state.loaded) loadConfig(true);
+    }, 5000);
+</script>
+</body>
+</html>

@@ -10,6 +10,7 @@ using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using CameraShow.Models;
+using CameraShow.Services;
 
 namespace CameraShow
 {
@@ -76,6 +77,7 @@ namespace CameraShow
 
             PcNameBox.Text = config.PcName ?? string.Empty;
             UdpPortBox.Text = config.UdpPort.ToString(CultureInfo.InvariantCulture);
+            WebPortBox.Text = config.WebPort.ToString(CultureInfo.InvariantCulture);
             WindowWidthBox.Text = config.WindowWidth.ToString(CultureInfo.InvariantCulture);
             WindowHeightBox.Text = config.WindowHeight.ToString(CultureInfo.InvariantCulture);
             _defaultMode = config.DefaultMode ?? string.Empty;
@@ -238,72 +240,50 @@ namespace CameraShow
 
         private bool TryBuildConfig(out AppConfig config, out string error)
         {
-            config = new AppConfig();
             var errors = new List<string>();
 
-            var pcName = PcNameBox.Text.Trim();
-            if (pcName.Length == 0)
-            {
-                errors.Add("计算机名不能为空。");
-            }
-            else if (pcName.Contains('-'))
-            {
-                errors.Add("计算机名不能包含“-”，UDP 指令以“-”分隔计算机名与模式名。");
-            }
-
-            if (!int.TryParse(UdpPortBox.Text.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var udpPort)
-                || udpPort < 1 || udpPort > 65535)
+            if (!int.TryParse(UdpPortBox.Text.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var udpPort))
             {
                 errors.Add("UDP 端口必须是 1～65535 之间的整数。");
+                udpPort = 30000;
             }
 
-            if (!int.TryParse(WindowWidthBox.Text.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var width)
-                || width < 0)
+            if (!int.TryParse(WebPortBox.Text.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var webPort))
+            {
+                errors.Add("网页设置端口必须是 0～65535 之间的整数（0 表示关闭网页设置）。");
+                webPort = 0;
+            }
+
+            if (!int.TryParse(WindowWidthBox.Text.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var width))
             {
                 errors.Add("窗口宽度必须是大于等于 0 的整数（0 表示铺满全屏）。");
+                width = 0;
             }
 
-            if (!int.TryParse(WindowHeightBox.Text.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var height)
-                || height < 0)
+            if (!int.TryParse(WindowHeightBox.Text.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var height))
             {
                 errors.Add("窗口高度必须是大于等于 0 的整数（0 表示铺满全屏）。");
+                height = 0;
             }
 
-            var modeNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var modes = new List<ViewGroup>();
             foreach (var editor in _modes)
             {
                 var modeName = (editor.Name ?? string.Empty).Trim();
-                if (modeName.Length == 0)
-                {
-                    errors.Add("布局模式名称不能为空。");
-                    continue;
-                }
-
-                if (!modeNames.Add(modeName))
-                {
-                    errors.Add($"布局模式名称重复：{modeName}");
-                    continue;
-                }
-
                 var views = new List<ViewItem>();
-                var viewsValid = true;
+
                 foreach (var view in editor.Views)
                 {
-                    if (!double.TryParse((view.W ?? string.Empty).Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var viewWidth)
-                        || viewWidth <= 0)
+                    if (!double.TryParse((view.W ?? string.Empty).Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var viewWidth))
                     {
                         errors.Add($"模式“{modeName}”的视图宽度必须是大于 0 的数字。");
-                        viewsValid = false;
-                        break;
+                        continue;
                     }
 
-                    if (!double.TryParse((view.H ?? string.Empty).Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var viewHeight)
-                        || viewHeight <= 0)
+                    if (!double.TryParse((view.H ?? string.Empty).Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var viewHeight))
                     {
                         errors.Add($"模式“{modeName}”的视图高度必须是大于 0 的数字。");
-                        viewsValid = false;
-                        break;
+                        continue;
                     }
 
                     views.Add(new ViewItem
@@ -314,32 +294,14 @@ namespace CameraShow
                     });
                 }
 
-                if (viewsValid)
-                {
-                    modes.Add(new ViewGroup { Mode = modeName, Views = views });
-                }
-            }
-
-            if (string.IsNullOrWhiteSpace(_defaultMode))
-            {
-                errors.Add("请选择默认模式。");
-            }
-            else if (!string.Equals(_defaultMode, BlankModeName, StringComparison.OrdinalIgnoreCase)
-                     && !modeNames.Contains(_defaultMode))
-            {
-                errors.Add($"默认模式“{_defaultMode}”不在布局模式列表中。");
-            }
-
-            if (errors.Count > 0)
-            {
-                error = string.Join(Environment.NewLine, errors.Select(line => "• " + line));
-                return false;
+                modes.Add(new ViewGroup { Mode = modeName, Views = views });
             }
 
             config = new AppConfig
             {
-                PcName = pcName,
+                PcName = PcNameBox.Text.Trim(),
                 UdpPort = udpPort,
+                WebPort = webPort,
                 DefaultMode = _defaultMode,
                 WindowWidth = width,
                 WindowHeight = height,
@@ -355,6 +317,15 @@ namespace CameraShow
                     .ToList(),
                 Modes = modes
             };
+
+            errors.AddRange(ConfigValidator.Validate(config));
+
+            if (errors.Count > 0)
+            {
+                error = string.Join(Environment.NewLine, errors.Distinct().Select(line => "• " + line));
+                return false;
+            }
+
             error = string.Empty;
             return true;
         }
