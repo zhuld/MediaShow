@@ -6,7 +6,9 @@
         Width="1280" Height="720"
         WindowStyle="None"
         WindowState="Maximized"
-        Loaded="Window_Loaded">
+        Loaded="Window_Loaded"
+        PreviewKeyDown="Window_PreviewKeyDown"
+        Closing="Window_Closing">
     <Grid>
         <Canvas x:Name="LayoutCanvas" Background="Black"/>
 
@@ -14,7 +16,9 @@
                    Background="#7F000000"
                    Foreground="White"
                    Padding="6,2">
-            <TextBlock x:Name="StatusText" Text="正在启动..." />
+            <TextBlock x:Name="StatusText"
+                       Text="正在启动..."
+                       VerticalAlignment="Center" />
         </StatusBar>
     </Grid>
 </Window>

@@ -9,6 +9,7 @@
     <AssemblyName>CameraShow</AssemblyName>
     <RootNamespace>CameraShow</RootNamespace>
     <PlatformTarget>x64</PlatformTarget>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
     <UserSecretsId>bfa93ba0-237c-4adf-baa3-ef5f5151e390</UserSecretsId>

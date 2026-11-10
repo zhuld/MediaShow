@@ -139,11 +139,13 @@ namespace CameraShow.Services
 
         public void Stop()
         {
-            if (!_running) return;
+            if (!_running && !_thread.IsAlive) return;
             _running = false;
             _stopEvent.Set();
-            // 最多等待 1 秒，避免阻塞 UI 线程过久导致窗口无法关闭
-            _thread.Join(TimeSpan.FromSeconds(1));
+            if (_thread.IsAlive)
+            {
+                _thread.Join();
+            }
         }
 
         /// <summary>
@@ -179,16 +181,7 @@ namespace CameraShow.Services
         public void Dispose()
         {
             Stop();
-            try
-            {
-                _capture.SignalToStop();
-            }
-            catch { /* ignore */ }
-            try
-            {
-                _capture.Stop();
-            }
-            catch { /* ignore */ }
+            _capture.NewFrame -= Capture_NewFrame;
             _stopEvent?.Dispose();
             GC.SuppressFinalize(this);
         }

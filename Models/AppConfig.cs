@@ -9,6 +9,7 @@ namespace CameraShow.Models
     {
         public string PcName { get; set; } = "PC_1";
         public int UdpPort { get; set; } = 30000;
+        public string DefaultMode { get; set; } = "Single";
         public List<CameraSource> CameraSources { get; set; } = new();
         public List<ViewGroup> Modes { get; set; } = new();
     }
