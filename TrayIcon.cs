@@ -97,14 +97,6 @@ namespace CameraShow
             _trayMenu = null;
         }
 
-        /// <summary>
-        /// 显示气球提示
-        /// </summary>
-        public static void ShowBalloonTip(string title, string message, ToolTipIcon icon)
-        {
-            _trayIcon?.ShowBalloonTip(2000, title, message, icon);
-        }
-
         private static void RebuildMenu()
         {
             var menu = new ContextMenuStrip();
@@ -160,12 +152,6 @@ namespace CameraShow
             oldMenu?.Dispose();
 
             LoggerService.Info($"托盘菜单已构建：配置模式 {modeCount} 个，共 {menu.Items.Count} 项");
-        }
-
-        // TEMP-TEST
-        public static void SimulateExitClickForTest()
-        {
-            _trayMenu?.Items[^1].PerformClick();
         }
 
         private static bool HasConfiguredMode(string modeName)
