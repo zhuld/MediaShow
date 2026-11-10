@@ -8,6 +8,7 @@ using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
+using System.Diagnostics;
 using CameraShow.Models;
 using CameraShow.Services;
 using AForge.Video.DirectShow;
@@ -91,13 +92,12 @@ namespace CameraShow
             // Initialize tray icon
             _trayIcon = new NotifyIcon
             {
-                // Try to use the application's executable icon, fallback to a system icon
+                // Try to use the application's executable icon
                 Visible = true,
                 Text = "CameraShow"
-                // Icon will be set after resources are added, or use default
             };
 
-            // Try to set icon from the application assembly
+            // Set icon from the application assembly
             try
             {
                 var exePath = System.Reflection.Assembly.GetExecutingAssembly().Location;
@@ -105,8 +105,82 @@ namespace CameraShow
             }
             catch
             {
-                // If icon extraction fails, use a simple default
+                // If icon extraction fails, use a simple default - the Visible=true will still show
+                // a standard .NET icon
             }
+
+            // Create context menu with mode selection
+            var trayMenu = new ContextMenuStrip();
+
+            // Add mode selection items - from config modes
+            if (_config?.Modes != null)
+            {
+                foreach (var mode in _config.Modes)
+                {
+                    if (!string.IsNullOrWhiteSpace(mode.Mode))
+                    {
+                        var modeItem = new ToolStripMenuItem(mode.Mode);
+                        modeItem.Click += (s, e) =>
+                        {
+                            _currentModeName = mode.Mode;
+                            ApplyViewsLayout(mode.Mode);
+                            ShowModeStatus(mode.Mode);
+                            LoggerService.Info($"手动切换模式：{mode.Mode}");
+                        };
+                        trayMenu.Items.Add(modeItem);
+                    }
+                }
+            }
+
+            // Add special modes
+            var desktopItem = new ToolStripMenuItem("Desktop");
+            desktopItem.Click += (s, e) =>
+            {
+                WindowState = WindowState.Minimized;
+                _trayIcon?.ShowBalloonTip(2000, "模式切换", "已最小化到托盘，显示桌面", System.Windows.Forms.ToolTipIcon.Info);
+                _currentModeName = "Desktop";
+                ShowModeStatus("Desktop");
+                LoggerService.Info("手动切换模式：Desktop");
+            };
+            trayMenu.Items.Add(desktopItem);
+
+            var shutdownItem = new ToolStripMenuItem("Shutdown");
+            shutdownItem.Click += (s, e) =>
+            {
+                _isShuttingDown = true;
+                try
+                {
+                    var psi = new ProcessStartInfo
+                    {
+                        FileName = "shutdown",
+                        Arguments = "/s /t 0",
+                        Verb = "runas"
+                    };
+                    Process.Start(psi);
+                }
+                catch (Exception ex)
+                {
+                    LoggerService.Error("关机命令执行失败", ex);
+                }
+                _currentModeName = "Shutdown";
+                ShowModeStatus("Shutdown");
+                LoggerService.Info("手动切换模式：Shutdown");
+            };
+            trayMenu.Items.Add(shutdownItem);
+
+            // Add separator
+            trayMenu.Items.Add(new ToolStripSeparator());
+
+            // Add exit item
+            var exitBtn = new ToolStripMenuItem("Exit");
+            exitBtn.Click += (s, e) =>
+            {
+                _isShuttingDown = true;
+                System.Windows.Application.Current.Shutdown();
+            };
+            trayMenu.Items.Add(exitBtn);
+
+            _trayIcon.ContextMenuStrip = trayMenu;
 
             // Create context menu
             var menu = new ContextMenuStrip();
