@@ -13,6 +13,7 @@
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
     <UserSecretsId>bfa93ba0-237c-4adf-baa3-ef5f5151e390</UserSecretsId>
+    <Icon>Resources\icon.ico</Icon>
   </PropertyGroup>
 
   <ItemGroup>

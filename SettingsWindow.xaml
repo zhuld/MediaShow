@@ -215,7 +215,7 @@
                                 </StackPanel>
                             </Grid>
                             <TextBlock Style="{StaticResource FieldHint}"
-                                       Text="任一项设置为 0 表示启动时铺满全屏（如 0 / 720 即全屏）。"/>
+                                       Text="单位是物理像素，程序会按当前屏幕 DPI 自动换算；任一项设置为 0 表示启动时铺满全屏（如 0 / 720 即全屏）。"/>
 
                             <Border Background="#F1F5F9" BorderBrush="#E5E7EB" BorderThickness="1"
                                     CornerRadius="4" Padding="9,5" Margin="0,8,0,0" HorizontalAlignment="Left">

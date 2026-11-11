@@ -12,7 +12,6 @@ using System.Diagnostics;
 using MediaShow.Models;
 using MediaShow.Services;
 using AForge.Video.DirectShow;
-using System.Windows.Forms;
 
 namespace MediaShow
 {
@@ -54,8 +53,9 @@ namespace MediaShow
             SubscribeTrayEvents();
             TrayIconManager.Initialize(_config);
 
-            // 应用窗口尺寸配置（从 config.json 读取 WindowWidth/WindowHeight）
-            // 如果宽度或高度为 0，则撑满全屏
+            // 提前创建窗口句柄（此时窗口还未显示），这样才能拿到窗口所在屏幕的 DPI，
+            // 把配置中的物理像素尺寸换算为 WPF DIP 后再显示，避免先以错误尺寸显示再调整
+            new WindowInteropHelper(this).EnsureHandle();
             ApplyWindowSizeFromConfig();
 
             // 每次启动自动扫描并列出本地可用摄像头
@@ -414,8 +414,9 @@ namespace MediaShow
             if (width <= 0) width = RestoreBounds.Width;
             if (height <= 0) height = RestoreBounds.Height;
 
-            if (width <= 0) width = _config.WindowWidth > 0 ? _config.WindowWidth : SystemParameters.FullPrimaryScreenWidth;
-            if (height <= 0) height = _config.WindowHeight > 0 ? _config.WindowHeight : SystemParameters.FullPrimaryScreenHeight;
+            // 配置中的宽高是物理像素，回退计算时需要换算为 DIP
+            if (width <= 0) width = _config.WindowWidth > 0 ? _config.WindowWidth / dpi.DpiScaleX : SystemParameters.FullPrimaryScreenWidth;
+            if (height <= 0) height = _config.WindowHeight > 0 ? _config.WindowHeight / dpi.DpiScaleY : SystemParameters.FullPrimaryScreenHeight;
 
             return new WindowStatus
             {
@@ -521,6 +522,12 @@ namespace MediaShow
                 {
                     if (!_isShuttingDown)
                     {
+                        // 缩放比例变化后重新按配置的物理像素设置窗口尺寸
+                        if (WindowState != WindowState.Minimized)
+                        {
+                            ApplyWindowSizeFromConfig();
+                        }
+
                         ApplyViewsLayout(_currentModeName);
                     }
                 }));
@@ -826,31 +833,36 @@ namespace MediaShow
 
         /// <summary>
         /// 从配置文件应用窗口尺寸
-        /// 如果宽度或高度为 0，则撑满全屏
+        /// 配置值是物理像素，需按窗口当前 DPI 换算为 WPF DIP；宽度或高度为 0 时撑满全屏
         /// </summary>
         private void ApplyWindowSizeFromConfig()
         {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.Invoke(ApplyWindowSizeFromConfig);
+                return;
+            }
+
             int width = _config.WindowWidth;
             int height = _config.WindowHeight;
 
-            // 使用 Dispatcher 确保窗口已完全初始化后再设置尺寸
-            Dispatcher.Invoke(() =>
+            if (width <= 0 || height <= 0)
             {
-                if (width == 0 || height == 0)
-                {
-                    // 撑满全屏 - 使用 Maximized 状态
-                    this.WindowState = WindowState.Maximized;
-                    // 确保窗体填充整个屏幕
-                    this.Width = SystemParameters.FullPrimaryScreenWidth;
-                    this.Height = SystemParameters.FullPrimaryScreenHeight;
-                }
-                else
-                {
-                    this.Width = width;
-                    this.Height = height;
-                    this.WindowState = WindowState.Normal;
-                }
-            });
+                // 撑满全屏 - 使用 Maximized 状态
+                this.WindowState = WindowState.Maximized;
+                // 确保窗体填充整个屏幕（SystemParameters 返回值已是 DIP）
+                this.Width = SystemParameters.FullPrimaryScreenWidth;
+                this.Height = SystemParameters.FullPrimaryScreenHeight;
+            }
+            else
+            {
+                var dpi = VisualTreeHelper.GetDpi(this);
+                this.Width = width / dpi.DpiScaleX;
+                this.Height = height / dpi.DpiScaleY;
+                this.WindowState = WindowState.Normal;
+                LoggerService.Info(
+                    $"按 DPI 应用窗口尺寸：配置 {width}x{height} 像素，缩放 {dpi.DpiScaleX}x{dpi.DpiScaleY} -> {this.Width:F1}x{this.Height:F1} DIP");
+            }
         }
 
         /// <summary>

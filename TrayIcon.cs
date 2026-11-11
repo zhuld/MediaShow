@@ -60,13 +60,22 @@ namespace MediaShow
 
             try
             {
-                // 使用 server.ico 作为托盘图标
-                var trayIconPath = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!, "Resources\\server.ico");
-                _trayIcon.Icon = new System.Drawing.Icon(trayIconPath);
+                // 使用 server.ico 作为托盘图标 - 从应用程序目录加载
+                var exeDir = System.IO.Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!;
+                var trayIconPath = System.IO.Path.Combine(exeDir, "server.ico");
+                if (System.IO.File.Exists(trayIconPath))
+                {
+                    _trayIcon.Icon = new System.Drawing.Icon(trayIconPath);
+                }
+                else
+                {
+                    // 文件不存在，使用默认行为（保持 null 图标）
+                    LoggerService.Warn($"Tray icon file not found: {trayIconPath}");
+                }
             }
-            catch
+            catch (Exception ex)
             {
-                // 提取失败时使用默认图标
+                LoggerService.Error($"Failed to load tray icon: {ex.Message}");
             }
 
             _trayIcon.DoubleClick += (s, e) => RestoreRequested?.Invoke();

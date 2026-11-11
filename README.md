@@ -55,7 +55,7 @@ MediaShow/
 
 | 选项卡 | 可修改内容 |
 | --- | --- |
-| 基本设置 | 计算机名（PcName）、UDP 端口（UdpPort）、网页设置端口（WebPort）、默认模式（DefaultMode）、窗口宽高（WindowWidth / WindowHeight，任一项为 0 表示铺满全屏） |
+| 基本设置 | 计算机名（PcName）、UDP 端口（UdpPort）、网页设置端口（WebPort）、默认模式（DefaultMode）、窗口宽高（WindowWidth / WindowHeight，单位为物理像素，运行时按当前 DPI 换算；任一项为 0 表示铺满全屏） |
 | 布局模式 | 新增/删除模式，修改模式名称，编辑每个视图的摄像头、宽（W）与高（H），每个模式最多 2 个视图 |
 | 摄像头 | 查看程序启动时自动扫描到的摄像头（该清单每次启动都会被重新生成并覆盖配置文件） |
 

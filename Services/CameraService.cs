@@ -1,11 +1,8 @@
 using System;
-using System.ComponentModel;
 using System.Threading;
-using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using MediaShow.Models;
-using MediaShow.Services;
 using AForge.Video;
 using AForge.Video.DirectShow;
 

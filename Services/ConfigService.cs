@@ -2,7 +2,6 @@ using System;
 using System.IO;
 using MediaShow.Models;
 using Newtonsoft.Json;
-using MediaShow.Services;
 
 namespace MediaShow.Services
 {
