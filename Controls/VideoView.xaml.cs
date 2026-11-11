@@ -3,6 +3,7 @@ using System.IO;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using MediaShow.Models;
@@ -36,12 +37,19 @@ namespace MediaShow.Controls
             InitializeComponent();
         }
 
-        /// <summary>设置该视图播放的视频源与音量，需在 Play 之前调用</summary>
-        public void Configure(VideoSource? videoSource, string videoId, double volumePercent)
+        /// <summary>设置该视图播放的视频源、音量与画面拉伸方式，需在 Play 之前调用</summary>
+        public void Configure(VideoSource? videoSource, string videoId, double volumePercent, Stretch stretch)
         {
             _videoSource = videoSource;
             VideoId = videoId ?? string.Empty;
             Volume = Math.Max(0, Math.Min(100, volumePercent));
+            SetStretch(stretch);
+        }
+
+        /// <summary>设置画面拉伸方式（Fill / Uniform / UniformToFill / None）</summary>
+        public void SetStretch(Stretch stretch)
+        {
+            PART_Image.Stretch = stretch;
         }
 
         /// <summary>开始播放；控件尚未加载完成时会等到加载后再开始</summary>

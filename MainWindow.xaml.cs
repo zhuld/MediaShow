@@ -875,6 +875,19 @@ namespace MediaShow
             return ConfigValidator.IsVideoView(item) ? $"视频:{item.VideoId}" : $"摄像头:{item.CameraId}";
         }
 
+        /// <summary>解析视图的拉伸方式；未配置时按来源使用默认（摄像头填充、视频等比适应）</summary>
+        private static Stretch ResolveStretch(ViewItem item)
+        {
+            return ConfigValidator.NormalizeStretch(item.Stretch) switch
+            {
+                "Fill" => Stretch.Fill,
+                "UniformToFill" => Stretch.UniformToFill,
+                "None" => Stretch.None,
+                "Uniform" => Stretch.Uniform,
+                _ => ConfigValidator.IsVideoView(item) ? Stretch.Uniform : Stretch.Fill
+            };
+        }
+
         /// <summary>
         /// 创建（或复用）视图元素：根据 ViewItem.SourceType 决定使用摄像头控件或视频控件
         /// </summary>
@@ -891,6 +904,7 @@ namespace MediaShow
                 {
                     existingVideo.Width = w;
                     existingVideo.Height = h;
+                    existingVideo.SetStretch(ResolveStretch(item));
                     Canvas.SetLeft(existingVideo, x);
                     Canvas.SetTop(existingVideo, y);
                     Canvas.SetZIndex(existingVideo, zIndex);
@@ -908,7 +922,7 @@ namespace MediaShow
                     Width = w,
                     Height = h
                 };
-                videoView.Configure(videoSource, item.VideoId, item.Volume);
+                videoView.Configure(videoSource, item.VideoId, item.Volume, ResolveStretch(item));
                 Canvas.SetLeft(videoView, x);
                 Canvas.SetTop(videoView, y);
                 Canvas.SetZIndex(videoView, zIndex);
@@ -929,6 +943,7 @@ namespace MediaShow
             {
                 existingView.Width = w;
                 existingView.Height = h;
+                existingView.SetStretch(ResolveStretch(item));
                 Canvas.SetLeft(existingView, x);
                 Canvas.SetTop(existingView, y);
                 Canvas.SetZIndex(existingView, zIndex);
@@ -941,6 +956,7 @@ namespace MediaShow
                 Width = w,
                 Height = h
             };
+            camView.SetStretch(ResolveStretch(item));
             Canvas.SetLeft(camView, x);
             Canvas.SetTop(camView, y);
             Canvas.SetZIndex(camView, zIndex);

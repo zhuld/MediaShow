@@ -21,6 +21,32 @@ namespace MediaShow.Services
 
         public const string DefaultVideoExtensions = ".mp4;.avi;.wmv";
 
+        /// <summary>视图可选的画面拉伸方式（对应 WPF Stretch 枚举）；留空表示按来源自动选择</summary>
+        private static readonly string[] StretchModes = { "Fill", "Uniform", "UniformToFill", "None" };
+
+        /// <summary>规范化拉伸方式名称：空或无法识别时返回空（自动）</summary>
+        public static string NormalizeStretch(string? value)
+        {
+            var text = (value ?? string.Empty).Trim();
+            if (text.Length == 0) return string.Empty;
+
+            foreach (var mode in StretchModes)
+            {
+                if (string.Equals(text, mode, StringComparison.OrdinalIgnoreCase))
+                {
+                    return mode;
+                }
+            }
+
+            return string.Empty;
+        }
+
+        public static bool IsValidStretch(string? value)
+        {
+            var text = (value ?? string.Empty).Trim();
+            return text.Length == 0 || string.Equals(text, NormalizeStretch(text), StringComparison.Ordinal);
+        }
+
         /// <summary>判断视图是否播放视频源</summary>
         public static bool IsVideoView(ViewItem? view)
         {
@@ -78,6 +104,7 @@ namespace MediaShow.Services
                     view.CameraId = (view.CameraId ?? string.Empty).Trim();
                     view.VideoId = (view.VideoId ?? string.Empty).Trim();
                     view.SourceType = IsVideoView(view) ? VideoSourceType : CameraSourceType;
+                    view.Stretch = NormalizeStretch(view.Stretch);
 
                     if (view.Volume < 0) view.Volume = 0;
                     else if (view.Volume > 100) view.Volume = 100;
@@ -130,6 +157,7 @@ namespace MediaShow.Services
                                 VideoId = view.VideoId,
                                 W = view.W,
                                 H = view.H,
+                                Stretch = view.Stretch,
                                 Volume = view.Volume
                             })
                             .ToList()
@@ -247,6 +275,12 @@ namespace MediaShow.Services
                         if (view.Volume < 0 || view.Volume > 100)
                         {
                             errors.Add($"模式“{modeName}”的视图音量必须是 0～100 之间的数字。");
+                            break;
+                        }
+
+                        if (!IsValidStretch(view.Stretch))
+                        {
+                            errors.Add($"模式“{modeName}”的视图拉伸方式无效：{view.Stretch}（可选 Fill / Uniform / UniformToFill / None 或留空）");
                             break;
                         }
 

@@ -61,7 +61,7 @@ dotnet build .\MediaShow.sln -c Release
 | 设置 | 说明 |
 | --- | --- |
 | 基本设置 | 计算机名、UDP 端口、网页设置端口、默认模式和窗口宽高 |
-| 布局模式 | 新增或删除布局，设置布局名称及每个视图使用的摄像头或视频源、宽高和音量 |
+| 布局模式 | 新增或删除布局，设置布局名称及每个视图使用的摄像头或视频源、宽高、拉伸方式和音量 |
 | 摄像头 | 查看本机扫描到的摄像头清单 |
 | 视频源 | 新增、删除视频源，设置视频目录、扩展名、循环和随机顺序 |
 
@@ -86,6 +86,7 @@ dotnet build .\MediaShow.sln -c Release
 | `Views[].CameraId` | 视图关联的摄像头 ID（`SourceType` 为 `Camera` 时使用） |
 | `Views[].VideoId` | 视图关联的视频源 ID（`SourceType` 为 `Video` 时使用） |
 | `Views[].W`、`Views[].H` | 视图宽高，单位为物理像素，必须大于 `0` |
+| `Views[].Stretch` | 画面拉伸方式：留空为自动（摄像头填充、视频等比适应），可选 `Fill`、`Uniform`、`UniformToFill`、`None` |
 | `Views[].Volume` | 视图音量，`0`～`100` 的百分比，`0` 表示静音；仅对视频视图生效，默认 `100` |
 
 程序每次启动都会重新扫描摄像头并覆盖 `CameraSources`，同时修正布局中不存在的摄像头 ID。因此，不要依赖手动维护的摄像头清单；如更换设备，请在设置窗口中确认扫描结果和布局关联。
@@ -145,6 +146,7 @@ dotnet build .\MediaShow.sln -c Release
           "VideoId": "vid_1",
           "W": 640,
           "H": 480,
+          "Stretch": "Uniform",
           "Volume": 50
         }
       ]
@@ -163,6 +165,7 @@ dotnet build .\MediaShow.sln -c Release
 - 默认按文件名顺序播放，`Loop` 为 `true` 时播完最后一个后从头继续；`Shuffle` 为 `true` 时随机顺序播放。
 - 使用 Media Foundation 逐帧解码后绘制到 WPF 画面，不依赖 Windows Media Player。
 - 音轨通过 Media Foundation 解码后由系统音频设备输出；音量按视图的 `Volume`（0～100）调节，多个视图各自独立，`0` 为静音。文件没有音轨时会自动静音播放。
+- 画面拉伸方式按视图的 `Stretch` 调节：`Fill` 拉伸填满（可能变形）、`Uniform` 等比适应（可能留黑边）、`UniformToFill` 等比裁剪填满、`None` 原始大小；留空则摄像头用 `Fill`、视频用 `Uniform`。
 - 切换布局、切换到 `Blank` 或退出程序时会停止播放并释放解码线程。
 
 能否解码取决于系统已安装的 Media Foundation 解码器：mp4/H.264、wmv 通常可直接播放，mkv/mov 等格式一般不支持。无法播放的文件会记录到日志并自动跳过；目录为空或全部文件都无法播放时，视图内会显示原因。视频画面按等比缩放显示（可能留黑边）。

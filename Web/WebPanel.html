@@ -486,7 +486,7 @@
 
     .view-row {
         display: grid;
-        grid-template-columns: 104px minmax(0, 1.5fr) 84px 84px 72px 36px;
+        grid-template-columns: 100px minmax(0, 1.5fr) 96px 72px 72px 68px 36px;
         gap: 10px;
         align-items: center;
         padding: 10px;
@@ -728,7 +728,7 @@
         .mode-tab { width: auto; white-space: nowrap; }
         .mode-actions { display: none; }
         .mode-actions-mobile { display: flex; gap: 8px; margin-bottom: 14px; }
-        .view-row { grid-template-columns: 1fr 1fr 1fr 36px; }
+        .view-row { grid-template-columns: 1fr 1fr; }
         .view-row .type-cell, .view-row .source-cell { grid-column: 1 / -1; }
         .video-row { grid-template-columns: 1fr; align-items: stretch; }
         .camera-row { grid-template-columns: 1fr auto; gap: 6px 12px; }
@@ -852,7 +852,7 @@
             <span class="panel-num">03</span>
             <div>
                 <h2 class="panel-title">布局模式</h2>
-                <p class="panel-desc">每个模式最多显示 2 个视图，按顺序左右排列；视图可选择摄像头或视频源，宽高为像素值，音量为 0～100（0 为静音）。</p>
+                <p class="panel-desc">每个模式最多显示 2 个视图，按顺序左右排列；视图可选择摄像头或视频源，宽度/高度为像素值，拉伸为画面填充方式，音量为 0～100（0 为静音）。</p>
             </div>
         </div>
 
@@ -1018,6 +1018,7 @@
                     VideoId: view.VideoId || '',
                     W: String(view.W),
                     H: String(view.H),
+                    Stretch: view.Stretch || '',
                     Volume: view.Volume == null ? '100' : String(view.Volume)
                 }))
             }));
@@ -1160,6 +1161,20 @@
         return options.join('');
     }
 
+    function stretchOptions(selectedValue) {
+        const modes = [
+            { Id: '', Name: '自动' },
+            { Id: 'Fill', Name: '填充' },
+            { Id: 'Uniform', Name: '等比适应' },
+            { Id: 'UniformToFill', Name: '等比裁剪' },
+            { Id: 'None', Name: '原始大小' }
+        ];
+        const current = selectedValue || '';
+        return modes.map(mode =>
+            `<option value="${mode.Id}" ${mode.Id === current ? 'selected' : ''}>${mode.Name}</option>`
+        ).join('');
+    }
+
     function renderModeEditor() {
         const mode = currentMode();
         const nameInput = $('modeName');
@@ -1197,6 +1212,10 @@
                     <select data-role="source">${isVideo ? videoOptions(view.VideoId) : cameraOptions(view.CameraId)}</select>
                 </div>
                 <div>
+                    <span class="sub-label">拉伸</span>
+                    <select data-role="stretch">${stretchOptions(view.Stretch)}</select>
+                </div>
+                <div>
                     <span class="sub-label">宽 W</span>
                     <input type="number" data-role="w" min="1" step="1" value="${escapeHtml(view.W)}">
                 </div>
@@ -1230,6 +1249,10 @@
                 } else {
                     mode.Views[index].CameraId = event.target.value;
                 }
+                markDirty(true);
+            });
+            row.querySelector('[data-role="stretch"]').addEventListener('change', event => {
+                mode.Views[index].Stretch = event.target.value;
                 markDirty(true);
             });
             row.querySelector('[data-role="w"]').addEventListener('input', event => {
@@ -1450,6 +1473,7 @@
                     VideoId: view.SourceType === 'Video' ? (view.VideoId || '') : '',
                     W: Number(view.W),
                     H: Number(view.H),
+                    Stretch: view.Stretch || '',
                     Volume: Number(view.Volume)
                 }))
             }))
@@ -1502,7 +1526,7 @@
         const cameraId = state.cameras.length ? state.cameras[0].Id : '';
         state.modes.push({
             Mode: name,
-            Views: [{ SourceType: 'Camera', CameraId: cameraId, VideoId: '', W: '640', H: '480', Volume: '100' }]
+            Views: [{ SourceType: 'Camera', CameraId: cameraId, VideoId: '', W: '640', H: '480', Stretch: '', Volume: '100' }]
         });
         state.selected = state.modes.length - 1;
         renderAll();
@@ -1524,7 +1548,7 @@
         const cameraId = state.cameras.length > mode.Views.length
             ? state.cameras[mode.Views.length].Id
             : '';
-        mode.Views.push({ SourceType: 'Camera', CameraId: cameraId, VideoId: '', W: '640', H: '480', Volume: '100' });
+        mode.Views.push({ SourceType: 'Camera', CameraId: cameraId, VideoId: '', W: '640', H: '480', Stretch: '', Volume: '100' });
         renderModeList();
         renderModeEditor();
         markDirty(true);

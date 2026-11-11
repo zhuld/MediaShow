@@ -3,8 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="MediaShow 设置"
         Icon="Resources/server.ico"
-        Width="840" Height="720"
-        MinWidth="720" MinHeight="560"
+        Width="980" Height="720"
+        MinWidth="860" MinHeight="560"
         WindowStartupLocation="CenterScreen"
         Background="#F3F4F6"
         FontFamily="Microsoft YaHei UI, Segoe UI"
@@ -290,7 +290,7 @@
                             <TextBlock Grid.Row="1"
                                        Style="{StaticResource FieldHint}"
                                        Margin="0,8,0,8"
-                                       Text="视图可选择摄像头或视频源，按顺序左右排列，最多显示 2 个；宽高为像素值（按 96 DPI 换算），音量为 0～100（0 为静音，仅视频生效）。"/>
+                                       Text="视图可选择摄像头或视频源，按顺序左右排列，最多显示 2 个；宽高为像素值（按 96 DPI 换算），拉伸为画面填充方式，音量为 0～100（0 为静音，仅视频生效）。"/>
 
                             <DataGrid x:Name="ViewsGrid" Grid.Row="2" ItemsSource="{Binding Views}">
                                 <DataGrid.Columns>
@@ -325,6 +325,18 @@
                                                               Padding="6,3"
                                                               VerticalContentAlignment="Center"/>
                                                 </Grid>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="拉伸" Width="104">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <ComboBox ItemsSource="{Binding StretchOptions}"
+                                                          DisplayMemberPath="Name"
+                                                          SelectedValuePath="Id"
+                                                          SelectedValue="{Binding Stretch, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                          Padding="6,3"
+                                                          VerticalContentAlignment="Center"/>
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>

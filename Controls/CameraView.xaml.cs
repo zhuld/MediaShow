@@ -19,5 +19,11 @@ namespace MediaShow.Controls
         {
             PART_Image.Source = source;
         }
+
+        /// <summary>设置画面拉伸方式（Fill / Uniform / UniformToFill / None）</summary>
+        public void SetStretch(System.Windows.Media.Stretch stretch)
+        {
+            PART_Image.Stretch = stretch;
+        }
     }
 }

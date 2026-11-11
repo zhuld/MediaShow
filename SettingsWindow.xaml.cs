@@ -428,6 +428,7 @@ namespace MediaShow
                         VideoId = (view.VideoId ?? string.Empty).Trim(),
                         W = viewWidth,
                         H = viewHeight,
+                        Stretch = view.Stretch ?? string.Empty,
                         Volume = view.Volume
                     });
                 }
@@ -555,6 +556,7 @@ namespace MediaShow
                         VideoId = view.VideoId ?? string.Empty,
                         W = view.W.ToString(CultureInfo.InvariantCulture),
                         H = view.H.ToString(CultureInfo.InvariantCulture),
+                        Stretch = view.Stretch ?? string.Empty,
                         Volume = view.Volume
                     });
                 }
@@ -574,7 +576,25 @@ namespace MediaShow
         private IReadOnlyList<SourceOption> _videoOptions = Array.Empty<SourceOption>();
         private string _w = "640";
         private string _h = "480";
+        private string _stretch = string.Empty;
         private double _volume = 100;
+
+        /// <summary>“拉伸”下拉框的可选项，所有视图共用；空值表示按来源自动选择</summary>
+        public IReadOnlyList<StretchOption> StretchOptions { get; } = new List<StretchOption>
+        {
+            new() { Id = string.Empty, Name = "自动" },
+            new() { Id = "Fill", Name = "填充" },
+            new() { Id = "Uniform", Name = "等比适应" },
+            new() { Id = "UniformToFill", Name = "等比裁剪" },
+            new() { Id = "None", Name = "原始大小" }
+        };
+
+        /// <summary>画面拉伸方式：留空表示自动（摄像头填充、视频等比适应）</summary>
+        public string Stretch
+        {
+            get => _stretch;
+            set => Set(ref _stretch, ConfigValidator.NormalizeStretch(value));
+        }
 
         /// <summary>“类型”下拉框的可选项（摄像头 / 视频），所有视图共用</summary>
         public IReadOnlyList<SourceTypeOption> SourceTypeOptions { get; } = new List<SourceTypeOption>
@@ -665,6 +685,13 @@ namespace MediaShow
 
     /// <summary>“来源”下拉框选项：摄像头或视频源</summary>
     internal class SourceOption
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+    }
+
+    /// <summary>“拉伸”下拉框选项</summary>
+    internal class StretchOption
     {
         public string Id { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;

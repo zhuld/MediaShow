@@ -23,6 +23,9 @@ namespace MediaShow.Models
         public double W { get; set; } = 640;
         public double H { get; set; } = 480;
 
+        /// <summary>画面拉伸方式：留空表示自动（摄像头填充、视频等比适应），可选 Fill / Uniform / UniformToFill / None</summary>
+        public string Stretch { get; set; } = string.Empty;
+
         /// <summary>音量百分比（0～100），0 表示静音；仅对视频视图生效</summary>
         public double Volume { get; set; } = 100;
     }
