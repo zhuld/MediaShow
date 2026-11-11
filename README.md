@@ -6,7 +6,7 @@ MediaShow 是一款运行于 Windows 的 WPF 摄像头显示程序。它使用 D
 
 - 启动时扫描本机摄像头，并按配置显示默认布局。
 - 支持自定义布局、窗口尺寸和多个摄像头画面；每个布局当前最多显示前两个视图。
-- 支持从指定目录播放视频：视图可选择摄像头或视频源，目录及子文件夹中的视频会按顺序循环播放，可配置随机顺序。
+- 支持从指定目录播放视频：视图可选择摄像头或视频源，目录及子文件夹中的视频会按顺序循环播放，可配置随机顺序，每个视图可单独调节音量。
 - 常驻系统托盘，可切换布局、打开设置、隐藏画面或退出程序。
 - 提供桌面设置窗口和可选的局域网网页设置页面，保存后立即应用。
 - 支持按计算机名和 UDP 端口接收布局切换指令。
@@ -61,7 +61,7 @@ dotnet build .\MediaShow.sln -c Release
 | 设置 | 说明 |
 | --- | --- |
 | 基本设置 | 计算机名、UDP 端口、网页设置端口、默认模式和窗口宽高 |
-| 布局模式 | 新增或删除布局，设置布局名称及每个视图使用的摄像头或视频源和宽高 |
+| 布局模式 | 新增或删除布局，设置布局名称及每个视图使用的摄像头或视频源、宽高和音量 |
 | 摄像头 | 查看本机扫描到的摄像头清单 |
 | 视频源 | 新增、删除视频源，设置视频目录、扩展名、循环和随机顺序 |
 
@@ -86,6 +86,7 @@ dotnet build .\MediaShow.sln -c Release
 | `Views[].CameraId` | 视图关联的摄像头 ID（`SourceType` 为 `Camera` 时使用） |
 | `Views[].VideoId` | 视图关联的视频源 ID（`SourceType` 为 `Video` 时使用） |
 | `Views[].W`、`Views[].H` | 视图宽高，单位为物理像素，必须大于 `0` |
+| `Views[].Volume` | 视图音量，`0`～`100` 的百分比，`0` 表示静音；仅对视频视图生效，默认 `100` |
 
 程序每次启动都会重新扫描摄像头并覆盖 `CameraSources`，同时修正布局中不存在的摄像头 ID。因此，不要依赖手动维护的摄像头清单；如更换设备，请在设置窗口中确认扫描结果和布局关联。
 
@@ -143,7 +144,8 @@ dotnet build .\MediaShow.sln -c Release
           "SourceType": "Video",
           "VideoId": "vid_1",
           "W": 640,
-          "H": 480
+          "H": 480,
+          "Volume": 50
         }
       ]
     }
@@ -159,7 +161,8 @@ dotnet build .\MediaShow.sln -c Release
 
 - 视频源指向一个目录，程序会递归扫描其子文件夹，按 `Extensions` 中配置的扩展名（分号、逗号或空格分隔，如 `.mp4;.avi`）收集文件。
 - 默认按文件名顺序播放，`Loop` 为 `true` 时播完最后一个后从头继续；`Shuffle` 为 `true` 时随机顺序播放。
-- 使用 Media Foundation 逐帧解码后绘制到 WPF 画面，不依赖 Windows Media Player，**静音播放**（不输出音轨）。
+- 使用 Media Foundation 逐帧解码后绘制到 WPF 画面，不依赖 Windows Media Player。
+- 音轨通过 Media Foundation 解码后由系统音频设备输出；音量按视图的 `Volume`（0～100）调节，多个视图各自独立，`0` 为静音。文件没有音轨时会自动静音播放。
 - 切换布局、切换到 `Blank` 或退出程序时会停止播放并释放解码线程。
 
 能否解码取决于系统已安装的 Media Foundation 解码器：mp4/H.264、wmv 通常可直接播放，mkv/mov 等格式一般不支持。无法播放的文件会记录到日志并自动跳过；目录为空或全部文件都无法播放时，视图内会显示原因。视频画面按等比缩放显示（可能留黑边）。
@@ -223,7 +226,8 @@ Release 构建通过 Costura.Fody 将第三方托管依赖嵌入 EXE；构建目
 
 - WPF / .NET Framework 4.7.2
 - AForge.Video.DirectShow：摄像头发现与捕获
-- Media Foundation（`mfreadwrite.dll`）：本地视频解码，不依赖 Windows Media Player
+- Media Foundation（`mfreadwrite.dll`）：本地视频/音频解码，不依赖 Windows Media Player
+- NAudio：音轨输出与音量控制
 - Newtonsoft.Json：配置序列化
 - Costura.Fody：托管依赖打包
 - Windows Forms `NotifyIcon`：系统托盘图标

@@ -22,5 +22,8 @@ namespace MediaShow.Models
         public string VideoId { get; set; } = string.Empty;
         public double W { get; set; } = 640;
         public double H { get; set; } = 480;
+
+        /// <summary>音量百分比（0～100），0 表示静音；仅对视频视图生效</summary>
+        public double Volume { get; set; } = 100;
     }
 }

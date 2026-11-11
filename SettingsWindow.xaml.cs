@@ -23,7 +23,8 @@ namespace MediaShow
         private readonly ObservableCollection<ModeEditor> _modes = new();
         private readonly ObservableCollection<VideoSource> _videoSources = new();
         private readonly List<CameraSource> _cameras;
-        private readonly List<CameraSource> _cameraOptions;
+        private readonly List<SourceOption> _cameraSourceOptions = new();
+        private List<SourceOption> _videoSourceOptions = new();
         private string _defaultMode = string.Empty;
         private bool _updatingDefaultMode;
 
@@ -52,11 +53,12 @@ namespace MediaShow
                 })
                 .ToList();
 
-            _cameraOptions = new List<CameraSource>
+            _cameraSourceOptions.Add(new SourceOption { Id = string.Empty, Name = "(不显示)" });
+            _cameraSourceOptions.AddRange(_cameras.Select(camera => new SourceOption
             {
-                new CameraSource { Id = string.Empty, Name = "(不显示)" }
-            };
-            _cameraOptions.AddRange(_cameras);
+                Id = camera.Id,
+                Name = string.IsNullOrWhiteSpace(camera.Name) ? camera.Id : camera.Name
+            }));
 
             _modes.CollectionChanged += (_, __) => RefreshDefaultModeOptions();
             foreach (var group in config.Modes ?? new List<ViewGroup>())
@@ -71,17 +73,6 @@ namespace MediaShow
             }
 
             CameraGrid.ItemsSource = _cameras;
-            CameraIdColumn.ItemsSource = _cameraOptions;
-            CameraIdColumn.DisplayMemberPath = nameof(CameraSource.Name);
-            CameraIdColumn.SelectedValuePath = nameof(CameraSource.Id);
-
-            SourceTypeColumn.ItemsSource = new List<SourceTypeOption>
-            {
-                new() { Id = ConfigValidator.CameraSourceType, Name = "摄像头" },
-                new() { Id = ConfigValidator.VideoSourceType, Name = "视频" }
-            };
-            SourceTypeColumn.DisplayMemberPath = nameof(SourceTypeOption.Name);
-            SourceTypeColumn.SelectedValuePath = nameof(SourceTypeOption.Id);
 
             foreach (var video in config.VideoSources ?? new List<VideoSource>())
             {
@@ -98,7 +89,7 @@ namespace MediaShow
 
             VideoGrid.ItemsSource = _videoSources;
             VideoGrid.CellEditEnding += VideoGrid_CellEditEnding;
-            RefreshVideoOptions();
+            RebuildVideoSourceOptions();
 
             PcNameBox.Text = config.PcName ?? string.Empty;
             UdpPortBox.Text = config.UdpPort.ToString(CultureInfo.InvariantCulture);
@@ -116,11 +107,23 @@ namespace MediaShow
         private void AddModeInternal(ModeEditor mode, bool select)
         {
             mode.PropertyChanged += Mode_PropertyChanged;
+            foreach (var view in mode.Views)
+            {
+                AttachSourceOptions(view);
+            }
+
             _modes.Add(mode);
             if (select)
             {
                 ModeList.SelectedItem = mode;
             }
+        }
+
+        /// <summary>把当前可选的摄像头 / 视频源列表挂到视图编辑器上（来源列按类型自动切换列表）</summary>
+        private void AttachSourceOptions(ViewEditor view)
+        {
+            view.CameraOptions = _cameraSourceOptions;
+            view.VideoOptions = _videoSourceOptions;
         }
 
         private void Mode_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -224,7 +227,9 @@ namespace MediaShow
             }
 
             var cameraId = _cameras.Count > mode.Views.Count ? _cameras[mode.Views.Count].Id : string.Empty;
-            mode.Views.Add(new ViewEditor { CameraId = cameraId });
+            var view = new ViewEditor { CameraId = cameraId };
+            AttachSourceOptions(view);
+            mode.Views.Add(view);
         }
 
         private void RemoveView_Click(object sender, RoutedEventArgs e)
@@ -262,7 +267,7 @@ namespace MediaShow
 
             _videoSources.Add(video);
             VideoGrid.SelectedItem = video;
-            RefreshVideoOptions();
+            RebuildVideoSourceOptions();
         }
 
         private void RemoveVideo_Click(object sender, RoutedEventArgs e)
@@ -277,7 +282,7 @@ namespace MediaShow
             if (result != MessageBoxResult.OK) return;
 
             _videoSources.Remove(video);
-            RefreshVideoOptions();
+            RebuildVideoSourceOptions();
         }
 
         private void BrowseVideoFolder_Click(object sender, RoutedEventArgs e)
@@ -299,27 +304,38 @@ namespace MediaShow
             {
                 video.FolderPath = dialog.SelectedPath;
                 VideoGrid.Items.Refresh();
-                RefreshVideoOptions();
+                RebuildVideoSourceOptions();
             }
         }
 
         private void VideoGrid_CellEditEnding(object? sender, DataGridCellEditEndingEventArgs e)
         {
-            // 等单元格提交完成后再刷新视频源下拉框中的名称
-            Dispatcher.BeginInvoke(new Action(RefreshVideoOptions), System.Windows.Threading.DispatcherPriority.Background);
+            // 等单元格提交完成后再刷新“来源”下拉框中的视频源名称
+            Dispatcher.BeginInvoke(new Action(RebuildVideoSourceOptions), System.Windows.Threading.DispatcherPriority.Background);
         }
 
-        private void RefreshVideoOptions()
+        /// <summary>重建视频源候选列表，并同步到所有视图的“来源”列</summary>
+        private void RebuildVideoSourceOptions()
         {
-            var options = new List<VideoSource>
+            var options = new List<SourceOption>
             {
                 new() { Id = string.Empty, Name = "(不显示)" }
             };
-            options.AddRange(_videoSources);
+            options.AddRange(_videoSources.Select(video => new SourceOption
+            {
+                Id = video.Id,
+                Name = string.IsNullOrWhiteSpace(video.Name) ? video.Id : video.Name
+            }));
 
-            VideoIdColumn.ItemsSource = options;
-            VideoIdColumn.DisplayMemberPath = nameof(VideoSource.Name);
-            VideoIdColumn.SelectedValuePath = nameof(VideoSource.Id);
+            _videoSourceOptions = options;
+
+            foreach (var mode in _modes)
+            {
+                foreach (var view in mode.Views)
+                {
+                    AttachSourceOptions(view);
+                }
+            }
         }
 
         private string GenerateUniqueModeName()
@@ -411,7 +427,8 @@ namespace MediaShow
                         CameraId = (view.CameraId ?? string.Empty).Trim(),
                         VideoId = (view.VideoId ?? string.Empty).Trim(),
                         W = viewWidth,
-                        H = viewHeight
+                        H = viewHeight,
+                        Volume = view.Volume
                     });
                 }
 
@@ -537,7 +554,8 @@ namespace MediaShow
                         CameraId = view.CameraId ?? string.Empty,
                         VideoId = view.VideoId ?? string.Empty,
                         W = view.W.ToString(CultureInfo.InvariantCulture),
-                        H = view.H.ToString(CultureInfo.InvariantCulture)
+                        H = view.H.ToString(CultureInfo.InvariantCulture),
+                        Volume = view.Volume
                     });
                 }
             }
@@ -552,13 +570,58 @@ namespace MediaShow
         private string _sourceType = ConfigValidator.CameraSourceType;
         private string _cameraId = string.Empty;
         private string _videoId = string.Empty;
+        private IReadOnlyList<SourceOption> _cameraOptions = Array.Empty<SourceOption>();
+        private IReadOnlyList<SourceOption> _videoOptions = Array.Empty<SourceOption>();
         private string _w = "640";
         private string _h = "480";
+        private double _volume = 100;
+
+        /// <summary>“类型”下拉框的可选项（摄像头 / 视频），所有视图共用</summary>
+        public IReadOnlyList<SourceTypeOption> SourceTypeOptions { get; } = new List<SourceTypeOption>
+        {
+            new() { Id = ConfigValidator.CameraSourceType, Name = "摄像头" },
+            new() { Id = ConfigValidator.VideoSourceType, Name = "视频" }
+        };
+
+        /// <summary>“来源”下拉框按类型切换的摄像头候选列表</summary>
+        public IReadOnlyList<SourceOption> CameraOptions
+        {
+            get => _cameraOptions;
+            set
+            {
+                _cameraOptions = value ?? Array.Empty<SourceOption>();
+                OnPropertyChanged();
+            }
+        }
+
+        /// <summary>“来源”下拉框按类型切换的视频源候选列表</summary>
+        public IReadOnlyList<SourceOption> VideoOptions
+        {
+            get => _videoOptions;
+            set
+            {
+                _videoOptions = value ?? Array.Empty<SourceOption>();
+                OnPropertyChanged();
+            }
+        }
+
+        public bool IsVideo => string.Equals(_sourceType, ConfigValidator.VideoSourceType, StringComparison.OrdinalIgnoreCase);
+
+        public bool IsCamera => !IsVideo;
 
         public string SourceType
         {
             get => _sourceType;
-            set => Set(ref _sourceType, string.IsNullOrWhiteSpace(value) ? ConfigValidator.CameraSourceType : value);
+            set
+            {
+                var normalized = string.Equals(value, ConfigValidator.VideoSourceType, StringComparison.OrdinalIgnoreCase)
+                    ? ConfigValidator.VideoSourceType
+                    : ConfigValidator.CameraSourceType;
+                if (!Set(ref _sourceType, normalized)) return;
+
+                OnPropertyChanged(nameof(IsVideo));
+                OnPropertyChanged(nameof(IsCamera));
+            }
         }
 
         public string CameraId
@@ -584,10 +647,24 @@ namespace MediaShow
             get => _h;
             set => Set(ref _h, value ?? string.Empty);
         }
+
+        /// <summary>音量百分比（0～100），仅视频视图生效</summary>
+        public double Volume
+        {
+            get => _volume;
+            set => Set(ref _volume, Math.Max(0, Math.Min(100, value)));
+        }
     }
 
     /// <summary>视图来源类型下拉框选项（摄像头 / 视频）</summary>
     internal class SourceTypeOption
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+    }
+
+    /// <summary>“来源”下拉框选项：摄像头或视频源</summary>
+    internal class SourceOption
     {
         public string Id { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;

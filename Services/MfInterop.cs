@@ -15,6 +15,7 @@ namespace MediaShow.Services
         public const int MF_SOURCE_READER_ALL_STREAMS = -2;
         public const int MF_SOURCE_READERF_ERROR = 0x1;
         public const int MF_SOURCE_READERF_ENDOFSTREAM = 0x2;
+        public const int MF_E_END_OF_STREAM = unchecked((int)0xC00D36E5);
 
         public static readonly Guid MF_MT_MAJOR_TYPE = new("48eba18e-f8c9-4687-bf11-0a74c9f96a8f");
         public static readonly Guid MF_MT_SUBTYPE = new("f7e34c9a-42e8-4714-b74b-cb29d72c35e5");

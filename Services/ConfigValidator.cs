@@ -78,6 +78,9 @@ namespace MediaShow.Services
                     view.CameraId = (view.CameraId ?? string.Empty).Trim();
                     view.VideoId = (view.VideoId ?? string.Empty).Trim();
                     view.SourceType = IsVideoView(view) ? VideoSourceType : CameraSourceType;
+
+                    if (view.Volume < 0) view.Volume = 0;
+                    else if (view.Volume > 100) view.Volume = 100;
                 }
             }
         }
@@ -126,7 +129,8 @@ namespace MediaShow.Services
                                 CameraId = view.CameraId,
                                 VideoId = view.VideoId,
                                 W = view.W,
-                                H = view.H
+                                H = view.H,
+                                Volume = view.Volume
                             })
                             .ToList()
                     })
@@ -237,6 +241,12 @@ namespace MediaShow.Services
                         if (view.H <= 0)
                         {
                             errors.Add($"模式“{modeName}”的视图高度必须是大于 0 的数字。");
+                            break;
+                        }
+
+                        if (view.Volume < 0 || view.Volume > 100)
+                        {
+                            errors.Add($"模式“{modeName}”的视图音量必须是 0～100 之间的数字。");
                             break;
                         }
 

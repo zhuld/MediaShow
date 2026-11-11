@@ -486,7 +486,7 @@
 
     .view-row {
         display: grid;
-        grid-template-columns: 104px minmax(0, 1.5fr) 84px 84px 36px;
+        grid-template-columns: 104px minmax(0, 1.5fr) 84px 84px 72px 36px;
         gap: 10px;
         align-items: center;
         padding: 10px;
@@ -728,7 +728,7 @@
         .mode-tab { width: auto; white-space: nowrap; }
         .mode-actions { display: none; }
         .mode-actions-mobile { display: flex; gap: 8px; margin-bottom: 14px; }
-        .view-row { grid-template-columns: 1fr 1fr 36px; }
+        .view-row { grid-template-columns: 1fr 1fr 1fr 36px; }
         .view-row .type-cell, .view-row .source-cell { grid-column: 1 / -1; }
         .video-row { grid-template-columns: 1fr; align-items: stretch; }
         .camera-row { grid-template-columns: 1fr auto; gap: 6px 12px; }
@@ -852,7 +852,7 @@
             <span class="panel-num">03</span>
             <div>
                 <h2 class="panel-title">布局模式</h2>
-                <p class="panel-desc">每个模式最多显示 2 个视图，按顺序左右排列；视图可选择摄像头或视频源，宽高为像素值。</p>
+                <p class="panel-desc">每个模式最多显示 2 个视图，按顺序左右排列；视图可选择摄像头或视频源，宽高为像素值，音量为 0～100（0 为静音）。</p>
             </div>
         </div>
 
@@ -1017,7 +1017,8 @@
                     CameraId: view.CameraId || '',
                     VideoId: view.VideoId || '',
                     W: String(view.W),
-                    H: String(view.H)
+                    H: String(view.H),
+                    Volume: view.Volume == null ? '100' : String(view.Volume)
                 }))
             }));
             state.controlModes = state.modes
@@ -1203,6 +1204,10 @@
                     <span class="sub-label">高 H</span>
                     <input type="number" data-role="h" min="1" step="1" value="${escapeHtml(view.H)}">
                 </div>
+                <div>
+                    <span class="sub-label">音量</span>
+                    <input type="number" data-role="volume" min="0" max="100" step="1" value="${escapeHtml(view.Volume)}">
+                </div>
                 <button type="button" class="btn-icon" data-role="remove" title="删除该视图">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
                         <path d="M5 7h14M10 11v6M14 11v6M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2"></path>
@@ -1233,6 +1238,10 @@
             });
             row.querySelector('[data-role="h"]').addEventListener('input', event => {
                 mode.Views[index].H = event.target.value;
+                markDirty(true);
+            });
+            row.querySelector('[data-role="volume"]').addEventListener('input', event => {
+                mode.Views[index].Volume = event.target.value;
                 markDirty(true);
             });
             row.querySelector('[data-role="remove"]').addEventListener('click', () => {
@@ -1440,7 +1449,8 @@
                     CameraId: view.SourceType === 'Video' ? '' : (view.CameraId || ''),
                     VideoId: view.SourceType === 'Video' ? (view.VideoId || '') : '',
                     W: Number(view.W),
-                    H: Number(view.H)
+                    H: Number(view.H),
+                    Volume: Number(view.Volume)
                 }))
             }))
         };
@@ -1492,7 +1502,7 @@
         const cameraId = state.cameras.length ? state.cameras[0].Id : '';
         state.modes.push({
             Mode: name,
-            Views: [{ SourceType: 'Camera', CameraId: cameraId, VideoId: '', W: '640', H: '480' }]
+            Views: [{ SourceType: 'Camera', CameraId: cameraId, VideoId: '', W: '640', H: '480', Volume: '100' }]
         });
         state.selected = state.modes.length - 1;
         renderAll();
@@ -1514,7 +1524,7 @@
         const cameraId = state.cameras.length > mode.Views.length
             ? state.cameras[mode.Views.length].Id
             : '';
-        mode.Views.push({ SourceType: 'Camera', CameraId: cameraId, VideoId: '', W: '640', H: '480' });
+        mode.Views.push({ SourceType: 'Camera', CameraId: cameraId, VideoId: '', W: '640', H: '480', Volume: '100' });
         renderModeList();
         renderModeEditor();
         markDirty(true);

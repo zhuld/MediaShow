@@ -908,7 +908,7 @@ namespace MediaShow
                     Width = w,
                     Height = h
                 };
-                videoView.Configure(videoSource, item.VideoId);
+                videoView.Configure(videoSource, item.VideoId, item.Volume);
                 Canvas.SetLeft(videoView, x);
                 Canvas.SetTop(videoView, y);
                 Canvas.SetZIndex(videoView, zIndex);

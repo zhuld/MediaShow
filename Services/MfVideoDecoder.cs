@@ -209,6 +209,13 @@ namespace MediaShow.Services
 
                 if (hr < 0)
                 {
+                    // 部分媒体源在文件结尾直接返回 MF_E_END_OF_STREAM，而非结束标志
+                    if (hr == MfInterop.MF_E_END_OF_STREAM)
+                    {
+                        PlaybackEnded?.Invoke();
+                        return;
+                    }
+
                     if (!_stopEvent.IsSet)
                     {
                         Fail($"读取视频帧失败：{MfInterop.DescribeResult(hr)}");

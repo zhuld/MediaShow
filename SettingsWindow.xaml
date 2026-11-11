@@ -12,6 +12,7 @@
         UseLayoutRounding="True">
 
     <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
         <SolidColorBrush x:Key="AccentBrush" Color="#2F6FED"/>
         <SolidColorBrush x:Key="BorderLightBrush" Color="#E5E7EB"/>
         <SolidColorBrush x:Key="TextPrimaryBrush" Color="#1F2937"/>
@@ -289,26 +290,72 @@
                             <TextBlock Grid.Row="1"
                                        Style="{StaticResource FieldHint}"
                                        Margin="0,8,0,8"
-                                       Text="视图可选择摄像头或视频源，按顺序左右排列，最多显示 2 个；宽高为像素值（按 96 DPI 换算）。"/>
+                                       Text="视图可选择摄像头或视频源，按顺序左右排列，最多显示 2 个；宽高为像素值（按 96 DPI 换算），音量为 0～100（0 为静音，仅视频生效）。"/>
 
                             <DataGrid x:Name="ViewsGrid" Grid.Row="2" ItemsSource="{Binding Views}">
                                 <DataGrid.Columns>
-                                    <DataGridComboBoxColumn x:Name="SourceTypeColumn"
-                                                            Header="类型"
-                                                            Width="80"
-                                                            SelectedValueBinding="{Binding SourceType}"/>
-                                    <DataGridComboBoxColumn x:Name="CameraIdColumn"
-                                                            Header="摄像头"
-                                                            Width="*"
-                                                            SelectedValueBinding="{Binding CameraId}"/>
-                                    <DataGridComboBoxColumn x:Name="VideoIdColumn"
-                                                            Header="视频源"
-                                                            Width="*"
-                                                            SelectedValueBinding="{Binding VideoId}"/>
-                                    <DataGridTextColumn Header="宽度 (W)" Width="76"
+                                    <DataGridTemplateColumn Header="类型" Width="90">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <ComboBox ItemsSource="{Binding SourceTypeOptions}"
+                                                          DisplayMemberPath="Name"
+                                                          SelectedValuePath="Id"
+                                                          SelectedValue="{Binding SourceType, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                          Padding="6,3"
+                                                          VerticalContentAlignment="Center"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="来源" Width="*">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Grid>
+                                                    <ComboBox ItemsSource="{Binding CameraOptions}"
+                                                              DisplayMemberPath="Name"
+                                                              SelectedValuePath="Id"
+                                                              SelectedValue="{Binding CameraId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                              Visibility="{Binding IsCamera, Converter={StaticResource BoolToVisibility}}"
+                                                              Padding="6,3"
+                                                              VerticalContentAlignment="Center"/>
+                                                    <ComboBox ItemsSource="{Binding VideoOptions}"
+                                                              DisplayMemberPath="Name"
+                                                              SelectedValuePath="Id"
+                                                              SelectedValue="{Binding VideoId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                              Visibility="{Binding IsVideo, Converter={StaticResource BoolToVisibility}}"
+                                                              Padding="6,3"
+                                                              VerticalContentAlignment="Center"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn Header="宽度 (W)" Width="68"
                                                         Binding="{Binding W, UpdateSourceTrigger=PropertyChanged}"/>
-                                    <DataGridTextColumn Header="高度 (H)" Width="76"
+                                    <DataGridTextColumn Header="高度 (H)" Width="68"
                                                         Binding="{Binding H, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <DataGridTemplateColumn Header="音量" Width="132">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="32"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Slider Grid.Column="0"
+                                                            Minimum="0" Maximum="100"
+                                                            TickFrequency="5"
+                                                            IsSnapToTickEnabled="True"
+                                                            VerticalAlignment="Center"
+                                                            Margin="0,0,6,0"
+                                                            Value="{Binding Volume, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                                    <TextBlock Grid.Column="1"
+                                                               Text="{Binding Volume, StringFormat={}{0:0}}"
+                                                               VerticalAlignment="Center"
+                                                               HorizontalAlignment="Right"
+                                                               Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
                                 </DataGrid.Columns>
                             </DataGrid>
 

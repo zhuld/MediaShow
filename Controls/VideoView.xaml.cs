@@ -20,6 +20,7 @@ namespace MediaShow.Controls
         private VideoPlaylistService? _playlist;
         private VideoSource? _videoSource;
         private MfVideoDecoder? _decoder;
+        private VideoAudioPlayer? _audio;
         private string? _currentFile;
         private int _framePending;
         private int _framesShown;
@@ -27,16 +28,20 @@ namespace MediaShow.Controls
 
         public string VideoId { get; set; } = string.Empty;
 
+        /// <summary>音量百分比（0～100），0 表示静音</summary>
+        public double Volume { get; set; } = 100;
+
         public VideoView()
         {
             InitializeComponent();
         }
 
-        /// <summary>设置该视图播放的视频源，需在 Play 之前调用</summary>
-        public void Configure(VideoSource? videoSource, string videoId)
+        /// <summary>设置该视图播放的视频源与音量，需在 Play 之前调用</summary>
+        public void Configure(VideoSource? videoSource, string videoId, double volumePercent)
         {
             _videoSource = videoSource;
             VideoId = videoId ?? string.Empty;
+            Volume = Math.Max(0, Math.Min(100, volumePercent));
         }
 
         /// <summary>开始播放；控件尚未加载完成时会等到加载后再开始</summary>
@@ -131,7 +136,11 @@ namespace MediaShow.Controls
             {
                 LoggerService.Error($"视频视图 {VideoId} 启动解码失败：{file}", ex);
                 HandlePlaybackFailure(file, ex.Message);
+                return;
             }
+
+            _audio = VideoAudioPlayer.TryCreate(file, Volume);
+            _audio?.Play();
         }
 
         /// <summary>解码线程每解码一帧触发；界面处理不过来时丢弃多余帧</summary>
@@ -170,6 +179,9 @@ namespace MediaShow.Controls
             {
                 if (_disposed) return;
 
+                // 视频结束：先停止音轨，再决定是否播放下一个文件
+                StopDecoder();
+
                 if (_playlist != null && _playlist.MoveNext())
                 {
                     PlayCurrent();
@@ -204,6 +216,20 @@ namespace MediaShow.Controls
 
         private void StopDecoder()
         {
+            var audio = _audio;
+            _audio = null;
+            if (audio != null)
+            {
+                try
+                {
+                    audio.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    LoggerService.Warn($"释放视频音频失败：{ex.Message}");
+                }
+            }
+
             var decoder = _decoder;
             _decoder = null;
             if (decoder == null) return;
