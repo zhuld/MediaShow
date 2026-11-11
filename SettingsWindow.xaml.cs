@@ -22,9 +22,11 @@ namespace MediaShow
     {
         private readonly ObservableCollection<ModeEditor> _modes = new();
         private readonly ObservableCollection<VideoSource> _videoSources = new();
+        private readonly ObservableCollection<ImageSource> _imageSources = new();
         private readonly List<CameraSource> _cameras;
         private readonly List<SourceOption> _cameraSourceOptions = new();
         private List<SourceOption> _videoSourceOptions = new();
+        private List<SourceOption> _imageSourceOptions = new();
         private string _defaultMode = string.Empty;
         private bool _updatingDefaultMode;
 
@@ -91,6 +93,23 @@ namespace MediaShow
             VideoGrid.CellEditEnding += VideoGrid_CellEditEnding;
             RebuildVideoSourceOptions();
 
+            foreach (var image in config.ImageSources ?? new List<ImageSource>())
+            {
+                _imageSources.Add(new ImageSource
+                {
+                    Id = image.Id,
+                    Name = image.Name,
+                    FolderPath = image.FolderPath,
+                    Extensions = image.Extensions,
+                    Loop = image.Loop,
+                    Shuffle = image.Shuffle
+                });
+            }
+
+            ImageGrid.ItemsSource = _imageSources;
+            ImageGrid.CellEditEnding += ImageGrid_CellEditEnding;
+            RebuildImageSourceOptions();
+
             PcNameBox.Text = config.PcName ?? string.Empty;
             UdpPortBox.Text = config.UdpPort.ToString(CultureInfo.InvariantCulture);
             WebPortBox.Text = config.WebPort.ToString(CultureInfo.InvariantCulture);
@@ -119,11 +138,12 @@ namespace MediaShow
             }
         }
 
-        /// <summary>把当前可选的摄像头 / 视频源列表挂到视图编辑器上（来源列按类型自动切换列表）</summary>
+        /// <summary>把当前可选的摄像头 / 视频源 / 图片源列表挂到视图编辑器上（来源列按类型自动切换列表）</summary>
         private void AttachSourceOptions(ViewEditor view)
         {
             view.CameraOptions = _cameraSourceOptions;
             view.VideoOptions = _videoSourceOptions;
+            view.ImageOptions = _imageSourceOptions;
         }
 
         private void Mode_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -314,6 +334,102 @@ namespace MediaShow
             Dispatcher.BeginInvoke(new Action(RebuildVideoSourceOptions), System.Windows.Threading.DispatcherPriority.Background);
         }
 
+        private string GenerateUniqueImageId()
+        {
+            var index = _imageSources.Count + 1;
+            string id;
+            do
+            {
+                id = $"img_{index++}";
+            }
+            while (_imageSources.Any(image => string.Equals(image.Id, id, StringComparison.OrdinalIgnoreCase)));
+
+            return id;
+        }
+
+        private void AddImage_Click(object sender, RoutedEventArgs e)
+        {
+            var image = new ImageSource
+            {
+                Id = GenerateUniqueImageId(),
+                Name = $"图片源 {_imageSources.Count + 1}",
+                Extensions = ConfigValidator.DefaultImageExtensions,
+                Loop = true
+            };
+
+            _imageSources.Add(image);
+            ImageGrid.SelectedItem = image;
+            RebuildImageSourceOptions();
+        }
+
+        private void RemoveImage_Click(object sender, RoutedEventArgs e)
+        {
+            if (ImageGrid.SelectedItem is not ImageSource image) return;
+
+            var result = MessageBox.Show(
+                $"确定删除图片源“{(string.IsNullOrWhiteSpace(image.Name) ? image.Id : image.Name)}”吗？",
+                "删除图片源",
+                MessageBoxButton.OKCancel,
+                MessageBoxImage.Question);
+            if (result != MessageBoxResult.OK) return;
+
+            _imageSources.Remove(image);
+            RebuildImageSourceOptions();
+        }
+
+        private void BrowseImageFolder_Click(object sender, RoutedEventArgs e)
+        {
+            if (ImageGrid.SelectedItem is not ImageSource image)
+            {
+                MessageBox.Show("请先在列表中选中要设置目录的图片源。", "选择目录", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            using var dialog = new System.Windows.Forms.FolderBrowserDialog
+            {
+                Description = "选择图片所在目录（包含子文件夹）",
+                SelectedPath = Directory.Exists(image.FolderPath) ? image.FolderPath : AppDomain.CurrentDomain.BaseDirectory,
+                ShowNewFolderButton = false
+            };
+
+            if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                image.FolderPath = dialog.SelectedPath;
+                ImageGrid.Items.Refresh();
+                RebuildImageSourceOptions();
+            }
+        }
+
+        private void ImageGrid_CellEditEnding(object? sender, DataGridCellEditEndingEventArgs e)
+        {
+            // 等单元格提交完成后再刷新“来源”下拉框中的图片源名称
+            Dispatcher.BeginInvoke(new Action(RebuildImageSourceOptions), System.Windows.Threading.DispatcherPriority.Background);
+        }
+
+        /// <summary>重建图片源候选列表，并同步到所有视图的“来源”列</summary>
+        private void RebuildImageSourceOptions()
+        {
+            var options = new List<SourceOption>
+            {
+                new() { Id = string.Empty, Name = "(不显示)" }
+            };
+            options.AddRange(_imageSources.Select(image => new SourceOption
+            {
+                Id = image.Id,
+                Name = string.IsNullOrWhiteSpace(image.Name) ? image.Id : image.Name
+            }));
+
+            _imageSourceOptions = options;
+
+            foreach (var mode in _modes)
+            {
+                foreach (var view in mode.Views)
+                {
+                    view.ImageOptions = _imageSourceOptions;
+                }
+            }
+        }
+
         /// <summary>重建视频源候选列表，并同步到所有视图的“来源”列</summary>
         private void RebuildVideoSourceOptions()
         {
@@ -360,6 +476,8 @@ namespace MediaShow
             ViewsGrid.CommitEdit(DataGridEditingUnit.Row, true);
             VideoGrid.CommitEdit(DataGridEditingUnit.Cell, true);
             VideoGrid.CommitEdit(DataGridEditingUnit.Row, true);
+            ImageGrid.CommitEdit(DataGridEditingUnit.Cell, true);
+            ImageGrid.CommitEdit(DataGridEditingUnit.Row, true);
 
             if (!TryBuildConfig(out var config, out var error))
             {
@@ -421,11 +539,10 @@ namespace MediaShow
 
                     views.Add(new ViewItem
                     {
-                        SourceType = string.Equals(view.SourceType, ConfigValidator.VideoSourceType, StringComparison.OrdinalIgnoreCase)
-                            ? ConfigValidator.VideoSourceType
-                            : ConfigValidator.CameraSourceType,
+                        SourceType = ConfigValidator.NormalizeSourceType(view.SourceType),
                         CameraId = (view.CameraId ?? string.Empty).Trim(),
                         VideoId = (view.VideoId ?? string.Empty).Trim(),
+                        ImageId = (view.ImageId ?? string.Empty).Trim(),
                         W = viewWidth,
                         H = viewHeight,
                         Stretch = view.Stretch ?? string.Empty,
@@ -466,6 +583,19 @@ namespace MediaShow
                             : video.Extensions.Trim(),
                         Loop = video.Loop,
                         Shuffle = video.Shuffle
+                    })
+                    .ToList(),
+                ImageSources = _imageSources
+                    .Select(image => new ImageSource
+                    {
+                        Id = (image.Id ?? string.Empty).Trim(),
+                        Name = (image.Name ?? string.Empty).Trim(),
+                        FolderPath = (image.FolderPath ?? string.Empty).Trim(),
+                        Extensions = string.IsNullOrWhiteSpace(image.Extensions)
+                            ? ConfigValidator.DefaultImageExtensions
+                            : image.Extensions.Trim(),
+                        Loop = image.Loop,
+                        Shuffle = image.Shuffle
                     })
                     .ToList(),
                 Modes = modes
@@ -549,11 +679,10 @@ namespace MediaShow
                 {
                     editor.Views.Add(new ViewEditor
                     {
-                        SourceType = ConfigValidator.IsVideoView(view)
-                            ? ConfigValidator.VideoSourceType
-                            : ConfigValidator.CameraSourceType,
+                        SourceType = ConfigValidator.NormalizeSourceType(view.SourceType),
                         CameraId = view.CameraId ?? string.Empty,
                         VideoId = view.VideoId ?? string.Empty,
+                        ImageId = view.ImageId ?? string.Empty,
                         W = view.W.ToString(CultureInfo.InvariantCulture),
                         H = view.H.ToString(CultureInfo.InvariantCulture),
                         Stretch = view.Stretch ?? string.Empty,
@@ -572,8 +701,10 @@ namespace MediaShow
         private string _sourceType = ConfigValidator.CameraSourceType;
         private string _cameraId = string.Empty;
         private string _videoId = string.Empty;
+        private string _imageId = string.Empty;
         private IReadOnlyList<SourceOption> _cameraOptions = Array.Empty<SourceOption>();
         private IReadOnlyList<SourceOption> _videoOptions = Array.Empty<SourceOption>();
+        private IReadOnlyList<SourceOption> _imageOptions = Array.Empty<SourceOption>();
         private string _w = "640";
         private string _h = "480";
         private string _stretch = string.Empty;
@@ -596,11 +727,12 @@ namespace MediaShow
             set => Set(ref _stretch, ConfigValidator.NormalizeStretch(value));
         }
 
-        /// <summary>“类型”下拉框的可选项（摄像头 / 视频），所有视图共用</summary>
+        /// <summary>“类型”下拉框的可选项（摄像头 / 视频 / 图片），所有视图共用</summary>
         public IReadOnlyList<SourceTypeOption> SourceTypeOptions { get; } = new List<SourceTypeOption>
         {
             new() { Id = ConfigValidator.CameraSourceType, Name = "摄像头" },
-            new() { Id = ConfigValidator.VideoSourceType, Name = "视频" }
+            new() { Id = ConfigValidator.VideoSourceType, Name = "视频" },
+            new() { Id = ConfigValidator.ImageSourceType, Name = "图片" }
         };
 
         /// <summary>“来源”下拉框按类型切换的摄像头候选列表</summary>
@@ -625,21 +757,33 @@ namespace MediaShow
             }
         }
 
+        /// <summary>“来源”下拉框按类型切换的图片源候选列表</summary>
+        public IReadOnlyList<SourceOption> ImageOptions
+        {
+            get => _imageOptions;
+            set
+            {
+                _imageOptions = value ?? Array.Empty<SourceOption>();
+                OnPropertyChanged();
+            }
+        }
+
+        public bool IsImage => string.Equals(_sourceType, ConfigValidator.ImageSourceType, StringComparison.OrdinalIgnoreCase);
+
         public bool IsVideo => string.Equals(_sourceType, ConfigValidator.VideoSourceType, StringComparison.OrdinalIgnoreCase);
 
-        public bool IsCamera => !IsVideo;
+        public bool IsCamera => !IsVideo && !IsImage;
 
         public string SourceType
         {
             get => _sourceType;
             set
             {
-                var normalized = string.Equals(value, ConfigValidator.VideoSourceType, StringComparison.OrdinalIgnoreCase)
-                    ? ConfigValidator.VideoSourceType
-                    : ConfigValidator.CameraSourceType;
+                var normalized = ConfigValidator.NormalizeSourceType(value);
                 if (!Set(ref _sourceType, normalized)) return;
 
                 OnPropertyChanged(nameof(IsVideo));
+                OnPropertyChanged(nameof(IsImage));
                 OnPropertyChanged(nameof(IsCamera));
             }
         }
@@ -656,6 +800,12 @@ namespace MediaShow
             set => Set(ref _videoId, value ?? string.Empty);
         }
 
+        public string ImageId
+        {
+            get => _imageId;
+            set => Set(ref _imageId, value ?? string.Empty);
+        }
+
         public string W
         {
             get => _w;
@@ -668,7 +818,7 @@ namespace MediaShow
             set => Set(ref _h, value ?? string.Empty);
         }
 
-        /// <summary>音量百分比（0～100），仅视频视图生效</summary>
+        /// <summary>音量百分比（0～100），仅视频视图生效；图片视图复用该值作为翻页间隔（秒）</summary>
         public double Volume
         {
             get => _volume;
@@ -676,14 +826,14 @@ namespace MediaShow
         }
     }
 
-    /// <summary>视图来源类型下拉框选项（摄像头 / 视频）</summary>
+    /// <summary>视图来源类型下拉框选项（摄像头 / 视频 / 图片）</summary>
     internal class SourceTypeOption
     {
         public string Id { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
     }
 
-    /// <summary>“来源”下拉框选项：摄像头或视频源</summary>
+    /// <summary>“来源”下拉框选项：摄像头、视频源或图片源</summary>
     internal class SourceOption
     {
         public string Id { get; set; } = string.Empty;

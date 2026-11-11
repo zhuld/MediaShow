@@ -7,6 +7,7 @@ MediaShow 是一款运行于 Windows 的 WPF 摄像头显示程序。它使用 D
 - 启动时扫描本机摄像头，并按配置显示默认布局。
 - 支持自定义布局、窗口尺寸和多个摄像头画面；每个布局当前最多显示前两个视图。
 - 支持从指定目录播放视频：视图可选择摄像头或视频源，目录及子文件夹中的视频会按顺序循环播放，可配置随机顺序，每个视图可单独调节音量。
+- 支持从指定目录轮播图片：视图可选择摄像头、视频源或图片源，目录及子文件夹中的图片会按视图设置的间隔循环或随机轮播，无需音频解码器。
 - 常驻系统托盘，可切换布局、打开设置、隐藏画面或退出程序。
 - 提供桌面设置窗口和可选的局域网网页设置页面，保存后立即应用。
 - 支持按计算机名和 UDP 端口接收布局切换指令。
@@ -61,9 +62,10 @@ dotnet build .\MediaShow.sln -c Release
 | 设置 | 说明 |
 | --- | --- |
 | 基本设置 | 计算机名、UDP 端口、网页设置端口、默认模式和窗口宽高 |
-| 布局模式 | 新增或删除布局，设置布局名称及每个视图使用的摄像头或视频源、宽高、拉伸方式和音量 |
+| 布局模式 | 新增或删除布局，设置布局名称及每个视图使用的摄像头、视频源或图片源、宽高、拉伸方式和音量 |
 | 摄像头 | 查看本机扫描到的摄像头清单 |
 | 视频源 | 新增、删除视频源，设置视频目录、扩展名、循环和随机顺序 |
+| 图片源 | 新增、删除图片源，设置图片目录、扩展名、循环和随机顺序；翻页间隔在「布局模式」的「音量/间隔」列按视图设置 |
 
 点击「保存并应用」后配置会写入 `config.json` 并立即生效。修改计算机名或 UDP 端口会重启 UDP 服务；修改网页端口会重启网页设置服务。网页端口设为 `0` 时会关闭该服务。
 
@@ -81,13 +83,15 @@ dotnet build .\MediaShow.sln -c Release
 | `ShowModeStatusBar` | 是否在模式切换后短暂显示窗口底部的模式状态栏；默认 `true` |
 | `CameraSources` | 本机摄像头清单，包含 ID、名称、索引和分辨率 |
 | `VideoSources` | 视频源清单，每项包含 `Id`、`Name`、`FolderPath`、`Extensions`、`Loop`、`Shuffle` |
+| `ImageSources` | 图片源清单，每项包含 `Id`、`Name`、`FolderPath`、`Extensions`、`Loop`、`Shuffle` |
 | `Modes` | 布局列表；每个布局包含名称 `Mode` 和视图数组 `Views` |
-| `Views[].SourceType` | 视图来源类型：`Camera`（默认）或 `Video` |
+| `Views[].SourceType` | 视图来源类型：`Camera`（默认）、`Video` 或 `Image` |
 | `Views[].CameraId` | 视图关联的摄像头 ID（`SourceType` 为 `Camera` 时使用） |
 | `Views[].VideoId` | 视图关联的视频源 ID（`SourceType` 为 `Video` 时使用） |
+| `Views[].ImageId` | 视图关联的图片源 ID（`SourceType` 为 `Image` 时使用） |
 | `Views[].W`、`Views[].H` | 视图宽高，单位为物理像素，必须大于 `0` |
-| `Views[].Stretch` | 画面拉伸方式：留空为自动（摄像头填充、视频等比适应），可选 `Fill`、`Uniform`、`UniformToFill`、`None` |
-| `Views[].Volume` | 视图音量，`0`～`100` 的百分比，`0` 表示静音；仅对视频视图生效，默认 `100` |
+| `Views[].Stretch` | 画面拉伸方式：留空为自动（摄像头填充、视频与图片等比适应），可选 `Fill`、`Uniform`、`UniformToFill`、`None` |
+| `Views[].Volume` | 视图音量，`0`～`100` 的百分比，`0` 表示静音；仅对视频视图生效，默认 `100`。图片视图复用该值作为翻页间隔（秒，`1`～`100`），不对图片生效为音量 |
 
 程序每次启动都会重新扫描摄像头并覆盖 `CameraSources`，同时修正布局中不存在的摄像头 ID。因此，不要依赖手动维护的摄像头清单；如更换设备，请在设置窗口中确认扫描结果和布局关联。
 
@@ -116,6 +120,16 @@ dotnet build .\MediaShow.sln -c Release
       "Name": "宣传片",
       "FolderPath": "D:\\Videos\\Show",
       "Extensions": ".mp4;.avi;.wmv",
+      "Loop": true,
+      "Shuffle": false
+    }
+  ],
+  "ImageSources": [
+    {
+      "Id": "img_1",
+      "Name": "宣传图",
+      "FolderPath": "D:\\Pictures\\Show",
+      "Extensions": ".jpg;.png",
       "Loop": true,
       "Shuffle": false
     }
@@ -150,6 +164,19 @@ dotnet build .\MediaShow.sln -c Release
           "Volume": 50
         }
       ]
+    },
+    {
+      "Mode": "Gallery",
+      "Views": [
+        {
+          "SourceType": "Image",
+          "ImageId": "img_1",
+          "W": 1280,
+          "H": 720,
+          "Stretch": "Uniform",
+          "Volume": 10
+        }
+      ]
     }
   ]
 }
@@ -170,6 +197,18 @@ dotnet build .\MediaShow.sln -c Release
 
 能否解码取决于系统已安装的 Media Foundation 解码器：mp4/H.264、wmv 通常可直接播放，mkv/mov 等格式一般不支持。无法播放的文件会记录到日志并自动跳过；目录为空或全部文件都无法播放时，视图内会显示原因。视频画面按等比缩放显示（可能留黑边）。
 
+## 图片播放
+
+在「布局模式」中把视图类型设为「图片」并选择图片源，即可在摄像头或视频画面旁、或整屏轮播本地图片：
+
+- 图片源指向一个目录，程序会递归扫描其子文件夹，按 `Extensions` 中配置的扩展名（分号、逗号或空格分隔，如 `.jpg;.png`）收集文件。
+- 翻页间隔由视图的 `Volume` 值决定（秒，`1`～`100`，默认 `10`），在设置窗口/网页的「音量/间隔」列设置；图片视图不使用音量。
+- `Loop` 为 `true` 时最后一张之后从第一张继续，`Shuffle` 为 `true` 时随机顺序轮播。
+- 图片在后台线程解码，读取完成后立即释放文件句柄，因此轮播期间可以替换或删除图片文件；下次轮播到该文件时才会重新读取。
+- 使用 WPF 内置的图片解码（WIC），jpg / png / bmp / gif 等常见格式无需额外解码器；GIF 只显示第一帧，不播放动画。
+- 画面拉伸方式按视图的 `Stretch` 调节，留空时按等比适应（`Uniform`）显示。
+- 无法读取的文件会记录到日志并自动跳过；目录为空或全部文件都无法读取时，视图内会显示原因。`Loop` 关闭时，最后一张图片会保持显示。
+
 ## 局域网网页设置
 
 网页服务默认使用 `8000` 端口。确保设备之间网络可达，并允许 Windows 防火墙接收入站 TCP 连接后，在同一可信局域网的浏览器中访问：
@@ -178,7 +217,7 @@ dotnet build .\MediaShow.sln -c Release
 http://<运行 MediaShow 的电脑 IP>:8000/
 ```
 
-本机也可以访问 `http://localhost:8000/`。页面可编辑基本设置、布局和视频源，提交后会校验、保存并立即应用。
+本机也可以访问 `http://localhost:8000/`。页面可编辑基本设置、布局、视频源和图片源，提交后会校验、保存并立即应用。
 页面顶部的「实时模式控制」可直接切换已配置布局以及 `Blank`、`Desktop_Show`，不会修改启动默认模式。
 
 服务接口（供设置页面使用）：
@@ -215,8 +254,9 @@ MediaShow/
 ├── TrayIcon.cs                   # 系统托盘图标与菜单
 ├── Controls/CameraView.xaml(.cs) # 摄像头画面控件
 ├── Controls/VideoView.xaml(.cs)  # 视频播放控件
+├── Controls/ImageView.xaml(.cs)  # 图片轮播控件
 ├── Models/                       # 配置和视图模型
-├── Services/                     # 摄像头、视频播放列表、配置、UDP、网页和日志服务
+├── Services/                     # 摄像头、视频/图片播放列表、配置、UDP、网页和日志服务
 ├── Resources/server.ico          # 应用及托盘图标
 ├── Web/WebPanel.html             # 内嵌网页设置界面
 ├── config.json                   # 本机配置
@@ -237,6 +277,6 @@ Release 构建通过 Costura.Fody 将第三方托管依赖嵌入 EXE；构建目
 
 ## 版本与说明
 
-当前版本：1.0.0
+当前版本：1.1.0（新增图片轮播模块）
 
 本程序由 AI 辅助开发，使用开源的 AForge.Video.DirectShow 库进行摄像头捕获，并通过 WPF 实现用户界面。

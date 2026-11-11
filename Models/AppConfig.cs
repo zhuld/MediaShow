@@ -16,6 +16,7 @@ namespace MediaShow.Models
         public bool ShowModeStatusBar { get; set; } = true;
         public List<CameraSource> CameraSources { get; set; } = new();
         public List<VideoSource> VideoSources { get; set; } = new();
+        public List<ImageSource> ImageSources { get; set; } = new();
         public List<ViewGroup> Modes { get; set; } = new();
     }
 }

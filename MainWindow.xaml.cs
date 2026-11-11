@@ -12,6 +12,7 @@ using System.Diagnostics;
 using MediaShow.Models;
 using MediaShow.Services;
 using AForge.Video.DirectShow;
+using ImageSource = MediaShow.Models.ImageSource;
 
 namespace MediaShow
 {
@@ -25,6 +26,7 @@ namespace MediaShow
         private readonly Dictionary<string, CameraService> _cameraServices = new();
         private readonly Dictionary<ViewItem, Controls.CameraView> _cameraViews = new();
         private readonly Dictionary<ViewItem, Controls.VideoView> _videoViews = new();
+        private readonly Dictionary<ViewItem, Controls.ImageView> _imageViews = new();
         private readonly DispatcherTimer _statusTimer = new()
         {
             Interval = TimeSpan.FromSeconds(5)
@@ -257,6 +259,7 @@ namespace MediaShow
                 ModeStatusBar.Visibility = Visibility.Collapsed;
             }
             _config.VideoSources = updated.VideoSources;
+            _config.ImageSources = updated.ImageSources;
             _config.Modes = updated.Modes;
 
             var saved = _configService.Save(_config);
@@ -653,7 +656,7 @@ namespace MediaShow
             IsEnabled = false;
             _statusTimer.Stop();
 
-            // 视频视图必须在 UI 线程停止，避免解码线程与显示控件在后台线程释放
+            // 视频与图片视图必须在 UI 线程停止，避免解码线程与显示控件在后台线程释放
             foreach (var videoView in _videoViews.Values.ToList())
             {
                 try
@@ -663,6 +666,18 @@ namespace MediaShow
                 catch (Exception ex)
                 {
                     LoggerService.Error("停止视频播放失败", ex);
+                }
+            }
+
+            foreach (var imageView in _imageViews.Values.ToList())
+            {
+                try
+                {
+                    imageView.Stop();
+                }
+                catch (Exception ex)
+                {
+                    LoggerService.Error("停止图片轮播失败", ex);
                 }
             }
 
@@ -749,7 +764,7 @@ namespace MediaShow
 
         private void ClearViews()
         {
-            foreach (var item in _cameraViews.Keys.Concat(_videoViews.Keys).ToList())
+            foreach (var item in _cameraViews.Keys.Concat(_videoViews.Keys).Concat(_imageViews.Keys).ToList())
             {
                 RemoveView(item);
             }
@@ -768,6 +783,13 @@ namespace MediaShow
                 _videoViews.Remove(item);
                 LayoutCanvas.Children.Remove(videoView);
                 videoView.Dispose();
+            }
+
+            if (_imageViews.TryGetValue(item, out var imageView))
+            {
+                _imageViews.Remove(item);
+                LayoutCanvas.Children.Remove(imageView);
+                imageView.Dispose();
             }
         }
 
@@ -823,7 +845,7 @@ namespace MediaShow
             }
 
             var visibleItems = items.Take(2).ToList();
-            foreach (var staleItem in _cameraViews.Keys.Concat(_videoViews.Keys)
+            foreach (var staleItem in _cameraViews.Keys.Concat(_videoViews.Keys).Concat(_imageViews.Keys)
                          .Where(item => !visibleItems.Contains(item)).ToList())
             {
                 RemoveView(staleItem);
@@ -872,10 +894,11 @@ namespace MediaShow
 
         private static string DescribeView(ViewItem item)
         {
+            if (ConfigValidator.IsImageView(item)) return $"图片:{item.ImageId}";
             return ConfigValidator.IsVideoView(item) ? $"视频:{item.VideoId}" : $"摄像头:{item.CameraId}";
         }
 
-        /// <summary>解析视图的拉伸方式；未配置时按来源使用默认（摄像头填充、视频等比适应）</summary>
+        /// <summary>解析视图的拉伸方式；未配置时按来源使用默认（摄像头填充、视频与图片等比适应）</summary>
         private static Stretch ResolveStretch(ViewItem item)
         {
             return ConfigValidator.NormalizeStretch(item.Stretch) switch
@@ -884,18 +907,60 @@ namespace MediaShow
                 "UniformToFill" => Stretch.UniformToFill,
                 "None" => Stretch.None,
                 "Uniform" => Stretch.Uniform,
-                _ => ConfigValidator.IsVideoView(item) ? Stretch.Uniform : Stretch.Fill
+                _ => ConfigValidator.IsVideoView(item) || ConfigValidator.IsImageView(item) ? Stretch.Uniform : Stretch.Fill
             };
         }
 
         /// <summary>
-        /// 创建（或复用）视图元素：根据 ViewItem.SourceType 决定使用摄像头控件或视频控件
+        /// 创建（或复用）视图元素：根据 ViewItem.SourceType 决定使用摄像头、视频或图片控件
         /// </summary>
         private FrameworkElement CreateView(ViewItem item, double x, double y, double w, double h, int zIndex)
         {
+            if (ConfigValidator.IsImageView(item))
+            {
+                if (_cameraViews.ContainsKey(item) || _videoViews.ContainsKey(item))
+                {
+                    RemoveView(item);
+                }
+
+                if (_imageViews.TryGetValue(item, out var existingImage))
+                {
+                    existingImage.Width = w;
+                    existingImage.Height = h;
+                    existingImage.SetInterval(ConfigValidator.ResolveImageIntervalSeconds(item));
+                    existingImage.SetStretch(ResolveStretch(item));
+                    Canvas.SetLeft(existingImage, x);
+                    Canvas.SetTop(existingImage, y);
+                    Canvas.SetZIndex(existingImage, zIndex);
+                    return existingImage;
+                }
+
+                var imageSource = FindImageSource(item.ImageId);
+                if (imageSource == null)
+                {
+                    LoggerService.Warn($"视图引用的图片源不存在：{item.ImageId}");
+                }
+
+                var imageView = new Controls.ImageView
+                {
+                    Width = w,
+                    Height = h
+                };
+                imageView.Configure(imageSource, item.ImageId, ConfigValidator.ResolveImageIntervalSeconds(item), ResolveStretch(item));
+                Canvas.SetLeft(imageView, x);
+                Canvas.SetTop(imageView, y);
+                Canvas.SetZIndex(imageView, zIndex);
+
+                _imageViews[item] = imageView;
+                LayoutCanvas.Children.Add(imageView);
+                LoggerService.Info($"创建图片显示窗口：ImageId={item.ImageId}, X={x}, Y={y}, W={w}, H={h}");
+                imageView.Play();
+                return imageView;
+            }
+
             if (ConfigValidator.IsVideoView(item))
             {
-                if (_cameraViews.ContainsKey(item))
+                if (_cameraViews.ContainsKey(item) || _imageViews.ContainsKey(item))
                 {
                     RemoveView(item);
                 }
@@ -934,7 +999,7 @@ namespace MediaShow
                 return videoView;
             }
 
-            if (_videoViews.ContainsKey(item))
+            if (_videoViews.ContainsKey(item) || _imageViews.ContainsKey(item))
             {
                 RemoveView(item);
             }
@@ -973,6 +1038,14 @@ namespace MediaShow
 
             return _config.VideoSources?.FirstOrDefault(
                 video => string.Equals(video.Id, videoId, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private ImageSource? FindImageSource(string imageId)
+        {
+            if (string.IsNullOrWhiteSpace(imageId)) return null;
+
+            return _config.ImageSources?.FirstOrDefault(
+                image => string.Equals(image.Id, imageId, StringComparison.OrdinalIgnoreCase));
         }
 
         private void UpdateCameraFrames(string cameraId, System.Windows.Media.Imaging.BitmapSource bitmap)

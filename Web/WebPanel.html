@@ -620,7 +620,8 @@
 
     .video-row .checks .check-option { font-size: 12px; gap: 6px; white-space: nowrap; }
 
-    .video-empty {
+    .video-empty,
+    .image-empty {
         border: 1px dashed var(--line-strong);
         border-radius: 9px;
         padding: 22px;
@@ -628,6 +629,32 @@
         color: var(--faint);
         font-size: 12.5px;
     }
+
+    /* ---------- image sources ---------- */
+
+    .image-table { display: flex; flex-direction: column; gap: 10px; }
+
+    .image-row {
+        display: grid;
+        grid-template-columns: 92px minmax(0, 1fr) minmax(0, 1.7fr) 150px 198px 36px;
+        gap: 10px;
+        align-items: end;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        background: rgba(9, 15, 21, .6);
+    }
+
+    .image-row input[readonly] { opacity: .68; cursor: default; }
+
+    .image-row .checks {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-height: 40px;
+    }
+
+    .image-row .checks .check-option { font-size: 12px; gap: 6px; white-space: nowrap; }
 
     /* ---------- alerts / footer ---------- */
 
@@ -731,6 +758,7 @@
         .view-row { grid-template-columns: 1fr 1fr; }
         .view-row .type-cell, .view-row .source-cell { grid-column: 1 / -1; }
         .video-row { grid-template-columns: 1fr; align-items: stretch; }
+        .image-row { grid-template-columns: 1fr; align-items: stretch; }
         .camera-row { grid-template-columns: 1fr auto; gap: 6px 12px; }
         .camera-row.head { display: none; }
         .camera-row .id { grid-column: 1 / -1; }
@@ -759,6 +787,7 @@
         <span class="stat-chip"><b id="statModes">0</b> MODES</span>
         <span class="stat-chip"><b id="statCameras">0</b> CAMS</span>
         <span class="stat-chip"><b id="statVideos">0</b> VIDS</span>
+        <span class="stat-chip"><b id="statImages">0</b> IMGS</span>
         <span class="conn" id="connState"><span class="dot"></span><span id="connText">CONNECTING</span></span>
     </div>
     <div class="topbar-line"></div>
@@ -913,6 +942,21 @@
         </div>
     </section>
 
+    <section class="panel">
+        <div class="panel-head">
+            <span class="panel-num">06</span>
+            <div>
+                <h2 class="panel-title">图片源</h2>
+                <p class="panel-desc">每个图片源指向一个本地目录，递归扫描其中的图片文件并按设定间隔轮播；无法读取的文件会自动跳过。</p>
+            </div>
+        </div>
+        <div class="image-table" id="imageTable"></div>
+        <div class="row-foot">
+            <button class="btn" id="addImageBtn" type="button">＋ 添加图片源</button>
+            <p class="hint">支持 jpg / png / bmp / gif 等系统可解码的格式（GIF 仅显示第一帧）；翻页间隔在「布局模式」的「音量/间隔」列按视图设置。</p>
+        </div>
+    </section>
+
     <p class="footer-note">CONFIG WRITTEN BY MEDIASHOW · REMOTE PANEL</p>
 </main>
 
@@ -931,6 +975,7 @@
     const state = {
         cameras: [],
         videos: [],
+        images: [],
         modes: [],
         controlModes: [],
         selected: 0,
@@ -1010,12 +1055,23 @@
                 Loop: video.Loop !== false,
                 Shuffle: !!video.Shuffle
             }));
+            state.images = (config.ImageSources || []).map(image => ({
+                Id: image.Id || '',
+                Name: image.Name || '',
+                FolderPath: image.FolderPath || '',
+                Extensions: image.Extensions || '',
+                Loop: image.Loop !== false,
+                Shuffle: !!image.Shuffle
+            }));
             state.modes = (config.Modes || []).map(mode => ({
                 Mode: mode.Mode || '',
                 Views: (mode.Views || []).map(view => ({
-                    SourceType: view.SourceType === 'Video' ? 'Video' : 'Camera',
+                    SourceType: view.SourceType === 'Video' || view.SourceType === 'Image'
+                        ? view.SourceType
+                        : 'Camera',
                     CameraId: view.CameraId || '',
                     VideoId: view.VideoId || '',
+                    ImageId: view.ImageId || '',
                     W: String(view.W),
                     H: String(view.H),
                     Stretch: view.Stretch || '',
@@ -1040,6 +1096,7 @@
             $('statModes').textContent = state.modes.length;
             $('statCameras').textContent = state.cameras.length;
             $('statVideos').textContent = state.videos.length;
+            $('statImages').textContent = state.images.length;
 
             state.loaded = true;
             renderAll();
@@ -1061,6 +1118,7 @@
         renderModeEditor();
         renderCameras();
         renderVideos();
+        renderImages();
         refreshDefaultModeOptions();
     }
 
@@ -1161,6 +1219,17 @@
         return options.join('');
     }
 
+    function imageOptions(selectedId) {
+        const options = ['<option value="">(不显示)</option>'];
+        for (const image of state.images) {
+            if (!image.Id) continue;
+            const selected = image.Id === selectedId ? 'selected' : '';
+            const label = image.Name ? `${image.Name} · ${image.Id}` : image.Id;
+            options.push(`<option value="${escapeHtml(image.Id)}" ${selected}>${escapeHtml(label)}</option>`);
+        }
+        return options.join('');
+    }
+
     function stretchOptions(selectedValue) {
         const modes = [
             { Id: '', Name: '自动' },
@@ -1198,18 +1267,24 @@
 
         table.innerHTML = mode.Views.map((view, index) => {
             const isVideo = view.SourceType === 'Video';
+            const isImage = view.SourceType === 'Image';
+            const sourceLabel = isVideo ? '视频源' : (isImage ? '图片源' : '摄像头');
+            const sourceOptions = isVideo
+                ? videoOptions(view.VideoId)
+                : (isImage ? imageOptions(view.ImageId) : cameraOptions(view.CameraId));
             return `
             <div class="view-row" data-index="${index}">
                 <div class="type-cell">
                     <span class="sub-label">类型</span>
                     <select data-role="type">
-                        <option value="Camera" ${isVideo ? '' : 'selected'}>摄像头</option>
+                        <option value="Camera" ${isVideo || isImage ? '' : 'selected'}>摄像头</option>
                         <option value="Video" ${isVideo ? 'selected' : ''}>视频</option>
+                        <option value="Image" ${isImage ? 'selected' : ''}>图片</option>
                     </select>
                 </div>
                 <div class="source-cell">
-                    <span class="sub-label">${isVideo ? '视频源' : '摄像头'}</span>
-                    <select data-role="source">${isVideo ? videoOptions(view.VideoId) : cameraOptions(view.CameraId)}</select>
+                    <span class="sub-label">${sourceLabel}</span>
+                    <select data-role="source">${sourceOptions}</select>
                 </div>
                 <div>
                     <span class="sub-label">拉伸</span>
@@ -1224,8 +1299,8 @@
                     <input type="number" data-role="h" min="1" step="1" value="${escapeHtml(view.H)}">
                 </div>
                 <div>
-                    <span class="sub-label">音量</span>
-                    <input type="number" data-role="volume" min="0" max="100" step="1" value="${escapeHtml(view.Volume)}">
+                    <span class="sub-label">${isImage ? '间隔（秒）' : '音量'}</span>
+                    <input type="number" data-role="volume" min="${isImage ? 1 : 0}" max="100" step="1" value="${escapeHtml(view.Volume)}">
                 </div>
                 <button type="button" class="btn-icon" data-role="remove" title="删除该视图">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -1239,15 +1314,19 @@
         table.querySelectorAll('.view-row').forEach(row => {
             const index = Number(row.dataset.index);
             row.querySelector('[data-role="type"]').addEventListener('change', event => {
-                mode.Views[index].SourceType = event.target.value === 'Video' ? 'Video' : 'Camera';
+                const type = event.target.value;
+                mode.Views[index].SourceType = type === 'Video' || type === 'Image' ? type : 'Camera';
                 renderModeEditor();
                 markDirty(true);
             });
             row.querySelector('[data-role="source"]').addEventListener('change', event => {
-                if (mode.Views[index].SourceType === 'Video') {
-                    mode.Views[index].VideoId = event.target.value;
+                const view = mode.Views[index];
+                if (view.SourceType === 'Video') {
+                    view.VideoId = event.target.value;
+                } else if (view.SourceType === 'Image') {
+                    view.ImageId = event.target.value;
                 } else {
-                    mode.Views[index].CameraId = event.target.value;
+                    view.CameraId = event.target.value;
                 }
                 markDirty(true);
             });
@@ -1399,6 +1478,107 @@
         markDirty(true);
     }
 
+    function renderImages() {
+        const table = $('imageTable');
+        if (!state.images.length) {
+            table.innerHTML = '<div class="image-empty">还没有图片源，点击下方「添加图片源」创建。</div>';
+            return;
+        }
+
+        table.innerHTML = state.images.map((image, index) => `
+            <div class="image-row" data-index="${index}">
+                <div>
+                    <span class="sub-label">ID</span>
+                    <input type="text" data-role="id" value="${escapeHtml(image.Id)}" readonly>
+                </div>
+                <div>
+                    <span class="sub-label">名称</span>
+                    <input type="text" data-role="name" value="${escapeHtml(image.Name)}" autocomplete="off" spellcheck="false" placeholder="图片源">
+                </div>
+                <div>
+                    <span class="sub-label">目录（含子文件夹）</span>
+                    <input type="text" data-role="folder" value="${escapeHtml(image.FolderPath)}" autocomplete="off" spellcheck="false" placeholder="D:\\Pictures">
+                </div>
+                <div>
+                    <span class="sub-label">扩展名</span>
+                    <input type="text" data-role="extensions" value="${escapeHtml(image.Extensions)}" autocomplete="off" spellcheck="false" placeholder=".jpg;.png">
+                </div>
+                <div class="checks">
+                    <label class="check-option"><input type="checkbox" data-role="loop" ${image.Loop ? 'checked' : ''}>循环</label>
+                    <label class="check-option"><input type="checkbox" data-role="shuffle" ${image.Shuffle ? 'checked' : ''}>随机</label>
+                </div>
+                <button type="button" class="btn-icon" data-role="remove" title="删除该图片源">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                        <path d="M5 7h14M10 11v6M14 11v6M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2"></path>
+                    </svg>
+                </button>
+            </div>
+        `).join('');
+
+        table.querySelectorAll('.image-row').forEach(row => {
+            const index = Number(row.dataset.index);
+            const image = state.images[index];
+
+            const textFields = {
+                name: 'Name',
+                folder: 'FolderPath',
+                extensions: 'Extensions'
+            };
+            Object.entries(textFields).forEach(([role, key]) => {
+                row.querySelector(`[data-role="${role}"]`).addEventListener('input', event => {
+                    image[key] = event.target.value;
+                    if (key === 'Name') renderModeEditor();
+                    markDirty(true);
+                });
+            });
+
+            row.querySelector('[data-role="loop"]').addEventListener('change', event => {
+                image.Loop = event.target.checked;
+                markDirty(true);
+            });
+            row.querySelector('[data-role="shuffle"]').addEventListener('change', event => {
+                image.Shuffle = event.target.checked;
+                markDirty(true);
+            });
+            row.querySelector('[data-role="remove"]').addEventListener('click', () => removeImage(index));
+        });
+    }
+
+    function newImageId() {
+        let index = state.images.length + 1;
+        let id;
+        do {
+            id = 'img_' + index++;
+        } while (state.images.some(image => (image.Id || '').toLowerCase() === id.toLowerCase()));
+        return id;
+    }
+
+    function addImage() {
+        state.images.push({
+            Id: newImageId(),
+            Name: '图片源 ' + (state.images.length + 1),
+            FolderPath: '',
+            Extensions: '.jpg;.jpeg;.png;.bmp;.gif',
+            Loop: true,
+            Shuffle: false
+        });
+        renderImages();
+        $('statImages').textContent = state.images.length;
+        markDirty(true);
+    }
+
+    function removeImage(index) {
+        const image = state.images[index];
+        if (!image) return;
+        if (!confirm('确定删除图片源「' + (image.Name || image.Id || '(未命名)') + '」吗？')) return;
+
+        state.images.splice(index, 1);
+        renderImages();
+        renderModeEditor();
+        $('statImages').textContent = state.images.length;
+        markDirty(true);
+    }
+
     function formatNumber(value) {
         const number = Number(value);
         return Number.isFinite(number) ? String(Math.round(number * 10) / 10) : '0';
@@ -1465,12 +1645,23 @@
                 Loop: !!video.Loop,
                 Shuffle: !!video.Shuffle
             })),
+            ImageSources: state.images.map(image => ({
+                Id: (image.Id || '').trim(),
+                Name: (image.Name || '').trim(),
+                FolderPath: (image.FolderPath || '').trim(),
+                Extensions: (image.Extensions || '').trim(),
+                Loop: !!image.Loop,
+                Shuffle: !!image.Shuffle
+            })),
             Modes: state.modes.map(mode => ({
                 Mode: (mode.Mode || '').trim(),
                 Views: mode.Views.map(view => ({
-                    SourceType: view.SourceType === 'Video' ? 'Video' : 'Camera',
-                    CameraId: view.SourceType === 'Video' ? '' : (view.CameraId || ''),
+                    SourceType: view.SourceType === 'Video' || view.SourceType === 'Image'
+                        ? view.SourceType
+                        : 'Camera',
+                    CameraId: view.SourceType === 'Camera' ? (view.CameraId || '') : '',
                     VideoId: view.SourceType === 'Video' ? (view.VideoId || '') : '',
+                    ImageId: view.SourceType === 'Image' ? (view.ImageId || '') : '',
                     W: Number(view.W),
                     H: Number(view.H),
                     Stretch: view.Stretch || '',
@@ -1526,7 +1717,7 @@
         const cameraId = state.cameras.length ? state.cameras[0].Id : '';
         state.modes.push({
             Mode: name,
-            Views: [{ SourceType: 'Camera', CameraId: cameraId, VideoId: '', W: '640', H: '480', Stretch: '', Volume: '100' }]
+            Views: [{ SourceType: 'Camera', CameraId: cameraId, VideoId: '', ImageId: '', W: '640', H: '480', Stretch: '', Volume: '100' }]
         });
         state.selected = state.modes.length - 1;
         renderAll();
@@ -1548,7 +1739,7 @@
         const cameraId = state.cameras.length > mode.Views.length
             ? state.cameras[mode.Views.length].Id
             : '';
-        mode.Views.push({ SourceType: 'Camera', CameraId: cameraId, VideoId: '', W: '640', H: '480', Stretch: '', Volume: '100' });
+        mode.Views.push({ SourceType: 'Camera', CameraId: cameraId, VideoId: '', ImageId: '', W: '640', H: '480', Stretch: '', Volume: '100' });
         renderModeList();
         renderModeEditor();
         markDirty(true);
@@ -1583,6 +1774,7 @@
     $('removeModeBtnMobile').addEventListener('click', removeMode);
     $('addViewBtn').addEventListener('click', addView);
     $('addVideoBtn').addEventListener('click', addVideo);
+    $('addImageBtn').addEventListener('click', addImage);
     $('saveBtn').addEventListener('click', save);
     $('reloadBtn').addEventListener('click', () => {
         if (state.dirty && !confirm('放弃未保存的修改并重新加载？')) return;

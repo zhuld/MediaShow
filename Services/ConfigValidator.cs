@@ -19,7 +19,27 @@ namespace MediaShow.Services
         /// <summary>视图来源类型：视频源</summary>
         public const string VideoSourceType = "Video";
 
+        /// <summary>视图来源类型：图片源</summary>
+        public const string ImageSourceType = "Image";
+
         public const string DefaultVideoExtensions = ".mp4;.avi;.wmv";
+
+        public const string DefaultImageExtensions = ".jpg;.jpeg;.png;.bmp;.gif";
+
+        /// <summary>图片翻页间隔（秒）的取值范围，由视图的 Volume 值表示</summary>
+        public const int MinImageIntervalSeconds = 1;
+        public const int MaxImageIntervalSeconds = 100;
+
+        /// <summary>图片视图的翻页间隔（秒）：复用视图的 Volume 值，并限制在有效范围内</summary>
+        public static int ResolveImageIntervalSeconds(ViewItem? view)
+        {
+            if (view == null) return 10;
+
+            var seconds = (int)Math.Round(view.Volume);
+            if (seconds < MinImageIntervalSeconds) return MinImageIntervalSeconds;
+            if (seconds > MaxImageIntervalSeconds) return MaxImageIntervalSeconds;
+            return seconds;
+        }
 
         /// <summary>视图可选的画面拉伸方式（对应 WPF Stretch 枚举）；留空表示按来源自动选择</summary>
         private static readonly string[] StretchModes = { "Fill", "Uniform", "UniformToFill", "None" };
@@ -53,6 +73,28 @@ namespace MediaShow.Services
             return view != null && string.Equals(view.SourceType, VideoSourceType, StringComparison.OrdinalIgnoreCase);
         }
 
+        /// <summary>判断视图是否轮播图片源</summary>
+        public static bool IsImageView(ViewItem? view)
+        {
+            return view != null && string.Equals(view.SourceType, ImageSourceType, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>规范化视图来源类型：无法识别时按摄像头处理</summary>
+        public static string NormalizeSourceType(string? value)
+        {
+            if (string.Equals(value, VideoSourceType, StringComparison.OrdinalIgnoreCase))
+            {
+                return VideoSourceType;
+            }
+
+            if (string.Equals(value, ImageSourceType, StringComparison.OrdinalIgnoreCase))
+            {
+                return ImageSourceType;
+            }
+
+            return CameraSourceType;
+        }
+
         /// <summary>判断是否为内置模式（不依赖 config.json 中的 Modes 定义）</summary>
         public static bool IsBuiltInMode(string? modeName)
         {
@@ -74,6 +116,7 @@ namespace MediaShow.Services
             config.DefaultMode = (config.DefaultMode ?? string.Empty).Trim();
             config.CameraSources ??= new List<CameraSource>();
             config.VideoSources ??= new List<VideoSource>();
+            config.ImageSources ??= new List<ImageSource>();
             config.Modes ??= new List<ViewGroup>();
 
             foreach (var video in config.VideoSources)
@@ -90,6 +133,20 @@ namespace MediaShow.Services
                 }
             }
 
+            foreach (var image in config.ImageSources)
+            {
+                if (image == null) continue;
+
+                image.Id = (image.Id ?? string.Empty).Trim();
+                image.Name = (image.Name ?? string.Empty).Trim();
+                image.FolderPath = (image.FolderPath ?? string.Empty).Trim();
+                image.Extensions = (image.Extensions ?? string.Empty).Trim();
+                if (image.Extensions.Length == 0)
+                {
+                    image.Extensions = DefaultImageExtensions;
+                }
+            }
+
             foreach (var mode in config.Modes)
             {
                 if (mode == null) continue;
@@ -103,11 +160,18 @@ namespace MediaShow.Services
 
                     view.CameraId = (view.CameraId ?? string.Empty).Trim();
                     view.VideoId = (view.VideoId ?? string.Empty).Trim();
-                    view.SourceType = IsVideoView(view) ? VideoSourceType : CameraSourceType;
+                    view.ImageId = (view.ImageId ?? string.Empty).Trim();
+                    view.SourceType = NormalizeSourceType(view.SourceType);
                     view.Stretch = NormalizeStretch(view.Stretch);
 
+                    // 图片视图用 Volume 保存翻页间隔（秒），因此下限是 1
                     if (view.Volume < 0) view.Volume = 0;
                     else if (view.Volume > 100) view.Volume = 100;
+
+                    if (IsImageView(view) && view.Volume < MinImageIntervalSeconds)
+                    {
+                        view.Volume = MinImageIntervalSeconds;
+                    }
                 }
             }
         }
@@ -145,6 +209,17 @@ namespace MediaShow.Services
                         Shuffle = video.Shuffle
                     })
                     .ToList(),
+                ImageSources = (config.ImageSources ?? new List<ImageSource>())
+                    .Select(image => new ImageSource
+                    {
+                        Id = image.Id,
+                        Name = image.Name,
+                        FolderPath = image.FolderPath,
+                        Extensions = image.Extensions,
+                        Loop = image.Loop,
+                        Shuffle = image.Shuffle
+                    })
+                    .ToList(),
                 Modes = (config.Modes ?? new List<ViewGroup>())
                     .Select(mode => new ViewGroup
                     {
@@ -155,6 +230,7 @@ namespace MediaShow.Services
                                 SourceType = view.SourceType,
                                 CameraId = view.CameraId,
                                 VideoId = view.VideoId,
+                                ImageId = view.ImageId,
                                 W = view.W,
                                 H = view.H,
                                 Stretch = view.Stretch,
@@ -234,6 +310,36 @@ namespace MediaShow.Services
                 }
             }
 
+            var imageIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (config.ImageSources != null)
+            {
+                foreach (var image in config.ImageSources)
+                {
+                    if (image == null) continue;
+
+                    var imageId = (image.Id ?? string.Empty).Trim();
+                    var imageName = string.IsNullOrWhiteSpace(image.Name) ? imageId : image.Name;
+                    if (imageId.Length == 0)
+                    {
+                        errors.Add("图片源 ID 不能为空。");
+                    }
+                    else if (!imageIds.Add(imageId))
+                    {
+                        errors.Add($"图片源 ID 重复：{imageId}");
+                    }
+
+                    if (string.IsNullOrWhiteSpace(image.FolderPath))
+                    {
+                        errors.Add($"图片源“{imageName}”的目录不能为空。");
+                    }
+
+                    if (string.IsNullOrWhiteSpace(image.Extensions))
+                    {
+                        errors.Add($"图片源“{imageName}”的扩展名不能为空，例如 .jpg;.png。");
+                    }
+                }
+            }
+
             var modeNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             if (config.Modes != null)
             {
@@ -272,7 +378,15 @@ namespace MediaShow.Services
                             break;
                         }
 
-                        if (view.Volume < 0 || view.Volume > 100)
+                        if (IsImageView(view))
+                        {
+                            if (view.Volume < MinImageIntervalSeconds || view.Volume > MaxImageIntervalSeconds)
+                            {
+                                errors.Add($"模式“{modeName}”的图片视图翻页间隔必须是 {MinImageIntervalSeconds}～{MaxImageIntervalSeconds} 秒（在音量列填写）。");
+                                break;
+                            }
+                        }
+                        else if (view.Volume < 0 || view.Volume > 100)
                         {
                             errors.Add($"模式“{modeName}”的视图音量必须是 0～100 之间的数字。");
                             break;
@@ -289,6 +403,14 @@ namespace MediaShow.Services
                             && !videoIds.Contains(view.VideoId.Trim()))
                         {
                             errors.Add($"模式“{modeName}”的视图引用了不存在的视频源：{view.VideoId}");
+                            break;
+                        }
+
+                        if (IsImageView(view)
+                            && !string.IsNullOrWhiteSpace(view.ImageId)
+                            && !imageIds.Contains(view.ImageId.Trim()))
+                        {
+                            errors.Add($"模式“{modeName}”的视图引用了不存在的图片源：{view.ImageId}");
                             break;
                         }
                     }
