@@ -1,105 +1,185 @@
 # MediaShow
 
-## 摄像头显示应用
+MediaShow 是一款运行于 Windows 的 WPF 摄像头显示程序。它使用 DirectShow 扫描本机摄像头，将摄像头画面按可配置的布局显示在无边框窗口中，并可通过系统托盘、UDP 指令或局域网网页进行控制。
 
-### 项目简介
-MediaShow 是一个基于 .NET Framework 4.7.2 的 WPF 桌面应用程序，用于显示和管理本地摄像头视频流。
+## 功能一览
 
-### 主要功能
-- 自动扫描本地可用摄像头
-- 多种布局模式切换
-- 系统托盘运行（最小化到任务栏右下角）
-- 托盘菜单 **Settings...** 打开设置对话框，直接编辑 config.json 参数并立即生效
-- 远程网页设置：默认端口 8000，局域网内用浏览器访问 `http://<本机IP>:8000/` 即可修改配置
-- 可自定义的视图布局
-- 实时摄像头帧显示
+- 启动时扫描本机摄像头，并按配置显示默认布局。
+- 支持自定义布局、窗口尺寸和多个摄像头画面；每个布局当前最多显示前两个视图。
+- 常驻系统托盘，可切换布局、打开设置、隐藏画面或退出程序。
+- 提供桌面设置窗口和可选的局域网网页设置页面，保存后立即应用。
+- 支持按计算机名和 UDP 端口接收布局切换指令。
+- 根据当前显示器 DPI 将配置的物理像素尺寸换算为 WPF 尺寸。
 
-### 架构
-- **前端**: WPF (Windows Presentation Foundation)
-- **摄像头捕获**: AForge.Video.DirectShow
-- **配置管理**: JSON 配置文件
-- **网络通信**: UDP 协议
+## 运行要求
 
-### 快速开始
-
-#### 先决条件
+- Windows
 - .NET Framework 4.7.2 或更高版本
-- 支持 DirectShow 的本地摄像头设备
+- x64 环境
+- 支持 DirectShow 的摄像头（使用摄像头功能时）
 
-#### 运行应用
-1. 克隆或下载项目
-2. 还原 NuGet 依赖: `dotnet restore`
-3. 构建项目: `dotnet build`
-4. 运行: `dotnet run` 或直接执行 `MediaShow.exe`
+## 构建与启动
 
-### 项目结构
-```
-MediaShow/
-├── MainWindow.xaml        # 主窗口 UI
-├── MainWindow.xaml.cs     # 主窗口逻辑
-├── MediaShow.csproj      # 项目配置
-├── config.json            # 配置文件
-├── Web/WebPanel.html      # 内嵌的远程网页设置页面
-├── bin/                   # 构建输出目录
-└── Resources/             # 资源文件夹 (图标等)
+在仓库根目录运行：
+
+```powershell
+dotnet restore .\MediaShow.sln
+dotnet build .\MediaShow.sln -c Release
 ```
 
-### 自定义
-- 修改 `config.json` 调整摄像头配置
-- `config.json` 会在构建时复制到输出目录（仅当项目中的文件更新时才覆盖，避免丢失运行期生成的配置）
-- 自定义布局模式在 `Models/Modes` 中定义
-- 图标可在 `Resources` 文件夹中替换
+构建完成后运行：
 
-#### 托盘设置对话框
-右键点击托盘图标，选择 **Settings...** 可以在图形界面中修改 `config.json`：
+```powershell
+.\bin\Release\net472\MediaShow.exe
+```
 
-| 选项卡 | 可修改内容 |
+也可以在 Visual Studio 中打开 `MediaShow.sln` 并生成 Release 配置。目标电脑需要安装 .NET Framework 4.7.2 或更高版本；该框架不会随程序打包。
+
+程序使用 EXE 所在目录的 `config.json`。如果文件不存在，首次启动时会生成默认配置。发布时如需保留已有设置，请将对应的 `config.json` 放在 EXE 同目录。
+
+## 使用方法
+
+程序启动后会在通知区域显示托盘图标。右键托盘图标可使用以下操作：
+
+| 菜单项 | 说明 |
 | --- | --- |
-| 基本设置 | 计算机名（PcName）、UDP 端口（UdpPort）、网页设置端口（WebPort）、默认模式（DefaultMode）、窗口宽高（WindowWidth / WindowHeight，单位为物理像素，运行时按当前 DPI 换算；任一项为 0 表示铺满全屏） |
-| 布局模式 | 新增/删除模式，修改模式名称，编辑每个视图的摄像头、宽（W）与高（H），每个模式最多 2 个视图 |
-| 摄像头 | 查看程序启动时自动扫描到的摄像头（该清单每次启动都会被重新生成并覆盖配置文件） |
+| 配置的布局名称 | 切换到对应布局 |
+| `Blank` | 清空摄像头画面，显示黑屏 |
+| `Desktop` | 隐藏程序窗口以显示桌面；再次选择显示布局或双击托盘图标可恢复 |
+| `Shutdown` | 请求 Windows 立即关机，系统可能会要求提升权限 |
+| `Settings...` | 打开设置窗口 |
+| `Exit` | 退出程序并释放摄像头和网络服务 |
 
-> `DefaultMode` 除 `Modes` 中定义的模式外，还支持两个内置模式：`Blank`（纯黑屏）与 `Desktop`（启动时隐藏窗口以显示桌面）；
-> UDP 指令与托盘菜单同样可以直接切换到这两个内置模式。
+按 `Esc` 可关闭主窗口并退出程序。
 
-「窗口尺寸」下方会显示程序窗口**当前的实际尺寸**（物理像素 / WPF DIP / DPI 缩放 / 当前状态），方便对照配置值与实际效果。
+### 桌面设置
 
-点击 **保存并应用** 后配置会写入 `config.json` 并立即生效：窗口尺寸、当前布局与托盘菜单都会刷新；
-若修改了计算机名或 UDP 端口，UDP 控制服务会自动按新参数重启；若修改了网页设置端口，网页设置服务也会自动重启（端口填 0 表示关闭网页设置）。配置项含义与写入的 JSON 字段一一对应。
+在托盘菜单中选择 **Settings...**。设置分为以下内容：
 
-#### 远程网页设置
+| 设置 | 说明 |
+| --- | --- |
+| 基本设置 | 计算机名、UDP 端口、网页设置端口、默认模式和窗口宽高 |
+| 布局模式 | 新增或删除布局，设置布局名称及每个视图使用的摄像头和宽高 |
+| 摄像头 | 查看本机扫描到的摄像头清单 |
 
-程序内置一个轻量 HTTP 服务，默认监听 **8000** 端口（`config.json` 中的 `WebPort`，`0` 表示关闭），
-局域网内的手机、平板或其他电脑用浏览器访问即可：
+点击「保存并应用」后配置会写入 `config.json` 并立即生效。修改计算机名或 UDP 端口会重启 UDP 服务；修改网页端口会重启网页设置服务。网页端口设为 `0` 时会关闭该服务。
 
+## 配置文件
+
+`config.json` 使用 JSON 格式。主要字段如下：
+
+| 字段 | 含义 |
+| --- | --- |
+| `PcName` | 本机 UDP 控制名称，指令中用于匹配目标；不能包含连字符 `-` |
+| `UdpPort` | UDP 控制监听端口，范围为 `1`–`65535` |
+| `WebPort` | 网页设置端口，范围为 `0`–`65535`；`0` 表示关闭 |
+| `DefaultMode` | 启动时使用的布局名称，也可以是内置模式 `Blank` 或 `Desktop` |
+| `WindowWidth`、`WindowHeight` | 窗口宽高，单位为物理像素；任一值为 `0` 时窗口最大化 |
+| `CameraSources` | 本机摄像头清单，包含 ID、名称、索引和分辨率 |
+| `Modes` | 布局列表；每个布局包含名称 `Mode` 和视图数组 `Views` |
+| `Views[].CameraId` | 视图关联的摄像头 ID |
+| `Views[].W`、`Views[].H` | 视图宽高，单位为物理像素，必须大于 `0` |
+
+程序每次启动都会重新扫描摄像头并覆盖 `CameraSources`，同时修正布局中不存在的摄像头 ID。因此，不要依赖手动维护的摄像头清单；如更换设备，请在设置窗口中确认扫描结果和布局关联。
+
+示例：
+
+```json
+{
+  "PcName": "PC_1",
+  "UdpPort": 30000,
+  "WebPort": 8000,
+  "DefaultMode": "Full",
+  "WindowWidth": 1280,
+  "WindowHeight": 720,
+  "CameraSources": [
+    {
+      "Id": "cam_0",
+      "Name": "Integrated Camera",
+      "Index": 0,
+      "Width": 1920,
+      "Height": 1080
+    }
+  ],
+  "Modes": [
+    {
+      "Mode": "Full",
+      "Views": [
+        {
+          "CameraId": "cam_0",
+          "W": 1280,
+          "H": 720
+        }
+      ]
+    }
+  ]
+}
 ```
+
+`Views` 可以配置一个或多个视图，但目前最多显示前两个：一个视图居中显示，两个视图左右排列。视图尺寸和窗口尺寸分别控制摄像头画面与程序窗口的大小。
+
+## 局域网网页设置
+
+网页服务默认使用 `8000` 端口。确保设备之间网络可达，并允许 Windows 防火墙接收入站 TCP 连接后，在同一可信局域网的浏览器中访问：
+
+```text
 http://<运行 MediaShow 的电脑 IP>:8000/
 ```
 
-页面提供与桌面设置对话框相同的编辑能力（基本参数、布局模式、摄像头清单），点击「保存并应用」后同样立即生效；
-直接在浏览器中打开 `http://<运行 MediaShow 的电脑 IP>:<WebPort>/` 即可（本机可用 `http://localhost:<WebPort>/`）。
+本机也可以访问 `http://localhost:8000/`。页面可编辑基本设置和布局，提交后会校验、保存并立即应用。
 
-相关接口（供页面自身使用）：
+服务接口（供设置页面使用）：
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| GET | `/` | 网页设置页面 |
-| GET | `/api/config` | 返回当前配置 JSON |
-| GET | `/api/status` | 返回主窗口当前实际尺寸（像素 / DIP / 缩放）、是否最小化以及当前模式 |
-| POST | `/api/config` | 提交完整配置并应用，成功返回 `{ "ok": true }`，校验失败返回 400 与 `errors` 列表 |
+| `GET` | `/` 或 `/index.html` | 设置页面 |
+| `GET` | `/api/config` | 获取当前配置 |
+| `GET` | `/api/status` | 获取窗口尺寸、DPI、显示状态和当前模式 |
+| `POST` | `/api/config` | 提交完整配置并应用；成功返回 `{ "ok": true }`，校验失败返回 HTTP 400 和 `errors` 列表 |
 
-> 该服务不带身份验证，仅应部署在可信的局域网内；如不需要请将 `WebPort` 设为 `0` 关闭。
+**安全提示：**网页设置服务监听所有网络接口，且没有身份验证。能够连接到该端口的设备可以读取和修改配置。仅在可信网络中启用；不要将端口暴露到互联网。不需要远程设置时，将 `WebPort` 设为 `0`。
 
-### 构建说明
-项目使用 `Microsoft.NET.Sdk.WindowsDesktop` SDK 目标 .NET Framework 4.7.2。执行 `dotnet build MediaShow.sln -c Release` 后，第三方托管 DLL 会由 Costura.Fody 嵌入 `MediaShow.exe`，应用程序图标和托盘图标也会嵌入 EXE，构建后会从输出目录移除这些 DLL，发布时只需分发 `MediaShow.exe`。
+## UDP 控制
 
-目标电脑仍需安装 .NET Framework 4.7.2 或更高版本；该运行时和 Windows 系统 DLL 不会打包进 EXE。程序首次启动时会在 EXE 所在目录生成可编辑的 `config.json`。
+程序监听 `UdpPort`，使用 UTF-8 文本指令选择布局。消息格式为：
 
-如需添加自定义图标，请将 .ico 文件添加到 `Resources` 文件夹并在 XAML 中引用。
+```text
+<PcName>-<模式名称>
+```
 
-### 版本
-当前版本: 1.0.0
+例如，若配置为 `"PcName": "PC_1"`、`"UdpPort": 30000`，发送 `PC_1-Full` 即可切换到 `Full` 布局；也可发送 `PC_1-Blank` 或 `PC_1-Desktop`。发送方应使用 UDP 向运行程序的电脑及对应端口发送消息。计算机名比较不区分大小写，布局名称需与配置一致。
 
-### 联系方式
-- GitHub: [your-repository-url]
-- 问题: [issue-tracker-url]
+## 日志与项目结构
+
+运行日志写入 EXE 所在目录下的 `Logs` 文件夹。
+
+```text
+MediaShow/
+├── App.xaml(.cs)                 # WPF 应用入口及退出清理
+├── MainWindow.xaml(.cs)          # 主窗口、摄像头布局和应用生命周期
+├── SettingsWindow.xaml(.cs)      # 桌面设置窗口
+├── TrayIcon.cs                   # 系统托盘图标与菜单
+├── Controls/CameraView.xaml(.cs) # 摄像头画面控件
+├── Models/                       # 配置和视图模型
+├── Services/                     # 摄像头、配置、UDP、网页和日志服务
+├── Resources/server.ico          # 应用及托盘图标
+├── Web/WebPanel.html             # 内嵌网页设置界面
+├── config.json                   # 本机配置
+└── MediaShow.csproj              # 项目与依赖配置
+```
+
+Release 构建通过 Costura.Fody 将第三方托管依赖嵌入 EXE；构建目标会从输出目录移除 DLL 和 EXE 配置文件。发布前请在目标电脑上验证 EXE、.NET Framework 和摄像头驱动兼容性。
+
+## 技术栈
+
+- WPF / .NET Framework 4.7.2
+- AForge.Video.DirectShow：摄像头发现与捕获
+- Newtonsoft.Json：配置序列化
+- Costura.Fody：托管依赖打包
+- Windows Forms `NotifyIcon`：系统托盘图标
+
+## 版本与说明
+
+当前版本：1.0.0
+
+本程序由 AI 辅助开发，使用开源的 AForge.Video.DirectShow 库进行摄像头捕获，并通过 WPF 实现用户界面。
