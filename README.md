@@ -45,7 +45,7 @@ dotnet build .\MediaShow.sln -c Release
 | --- | --- |
 | 配置的布局名称 | 切换到对应布局 |
 | `Blank` | 清空摄像头画面，显示黑屏 |
-| `Desktop` | 隐藏程序窗口以显示桌面；再次选择显示布局或双击托盘图标可恢复 |
+| `Desktop_Show` | 隐藏程序窗口以显示桌面；再次选择显示布局或双击托盘图标可恢复 |
 | `Shutdown` | 请求 Windows 立即关机，系统可能会要求提升权限 |
 | `Settings...` | 打开设置窗口 |
 | `Exit` | 退出程序并释放摄像头和网络服务 |
@@ -73,8 +73,9 @@ dotnet build .\MediaShow.sln -c Release
 | `PcName` | 本机 UDP 控制名称，指令中用于匹配目标；不能包含连字符 `-` |
 | `UdpPort` | UDP 控制监听端口，范围为 `1`–`65535` |
 | `WebPort` | 网页设置端口，范围为 `0`–`65535`；`0` 表示关闭 |
-| `DefaultMode` | 启动时使用的布局名称，也可以是内置模式 `Blank` 或 `Desktop` |
+| `DefaultMode` | 启动时使用的布局名称，也可以是内置模式 `Blank` 或 `Desktop_Show`（旧配置 `Desktop` 仍兼容） |
 | `WindowWidth`、`WindowHeight` | 窗口宽高，单位为物理像素；任一值为 `0` 时窗口最大化 |
+| `ShowModeStatusBar` | 是否在模式切换后短暂显示窗口底部的模式状态栏；默认 `true` |
 | `CameraSources` | 本机摄像头清单，包含 ID、名称、索引和分辨率 |
 | `Modes` | 布局列表；每个布局包含名称 `Mode` 和视图数组 `Views` |
 | `Views[].CameraId` | 视图关联的摄像头 ID |
@@ -127,6 +128,7 @@ http://<运行 MediaShow 的电脑 IP>:8000/
 ```
 
 本机也可以访问 `http://localhost:8000/`。页面可编辑基本设置和布局，提交后会校验、保存并立即应用。
+页面顶部的「实时模式控制」可直接切换已配置布局以及 `Blank`、`Desktop_Show`，不会修改启动默认模式。
 
 服务接口（供设置页面使用）：
 
@@ -136,6 +138,7 @@ http://<运行 MediaShow 的电脑 IP>:8000/
 | `GET` | `/api/config` | 获取当前配置 |
 | `GET` | `/api/status` | 获取窗口尺寸、DPI、显示状态和当前模式 |
 | `POST` | `/api/config` | 提交完整配置并应用；成功返回 `{ "ok": true }`，校验失败返回 HTTP 400 和 `errors` 列表 |
+| `POST` | `/api/mode` | 即时切换模式；请求正文为 `{ "Mode": "模式名称" }` |
 
 **安全提示：**网页设置服务监听所有网络接口，且没有身份验证。能够连接到该端口的设备可以读取和修改配置。仅在可信网络中启用；不要将端口暴露到互联网。不需要远程设置时，将 `WebPort` 设为 `0`。
 
@@ -147,7 +150,7 @@ http://<运行 MediaShow 的电脑 IP>:8000/
 <PcName>-<模式名称>
 ```
 
-例如，若配置为 `"PcName": "PC_1"`、`"UdpPort": 30000`，发送 `PC_1-Full` 即可切换到 `Full` 布局；也可发送 `PC_1-Blank` 或 `PC_1-Desktop`。发送方应使用 UDP 向运行程序的电脑及对应端口发送消息。计算机名比较不区分大小写，布局名称需与配置一致。
+例如，若配置为 `"PcName": "PC_1"`、`"UdpPort": 30000`，发送 `PC_1-Full` 即可切换到 `Full` 布局；也可发送 `PC_1-Blank`、`PC_1-Desktop_Show` 或 `PC_1-Shutdown` 关机。发送方应使用 UDP 向运行程序的电脑及对应端口发送消息。计算机名和 `Shutdown` 指令比较不区分大小写，布局名称需与配置一致。
 
 ## 日志与项目结构
 

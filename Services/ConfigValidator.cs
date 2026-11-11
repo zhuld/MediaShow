@@ -11,13 +11,18 @@ namespace MediaShow.Services
     public static class ConfigValidator
     {
         public const string BlankModeName = "Blank";
-        public const string DesktopModeName = "Desktop";
+        public const string DesktopModeName = "Desktop_Show";
 
         /// <summary>判断是否为内置模式（不依赖 config.json 中的 Modes 定义）</summary>
         public static bool IsBuiltInMode(string? modeName)
         {
             return string.Equals(modeName, BlankModeName, StringComparison.OrdinalIgnoreCase)
-                   || string.Equals(modeName, DesktopModeName, StringComparison.OrdinalIgnoreCase);
+                   || IsDesktopMode(modeName);
+        }
+
+        public static bool IsDesktopMode(string? modeName)
+        {
+            return string.Equals(modeName, DesktopModeName, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>将配置中的文本字段与集合规范化为可直接保存的状态</summary>
@@ -57,6 +62,7 @@ namespace MediaShow.Services
                 DefaultMode = config.DefaultMode,
                 WindowWidth = config.WindowWidth,
                 WindowHeight = config.WindowHeight,
+                ShowModeStatusBar = config.ShowModeStatusBar,
                 CameraSources = (config.CameraSources ?? new List<CameraSource>())
                     .Select(camera => new CameraSource
                     {

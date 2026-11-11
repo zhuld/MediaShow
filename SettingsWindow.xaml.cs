@@ -20,9 +20,6 @@ namespace MediaShow
     /// </summary>
     public partial class SettingsWindow : Window
     {
-        private const string BlankModeName = "Blank";
-        private const string DesktopModeName = "Desktop";
-
         private readonly ObservableCollection<ModeEditor> _modes = new();
         private readonly List<CameraSource> _cameras;
         private readonly List<CameraSource> _cameraOptions;
@@ -82,7 +79,10 @@ namespace MediaShow
             WebPortBox.Text = config.WebPort.ToString(CultureInfo.InvariantCulture);
             WindowWidthBox.Text = config.WindowWidth.ToString(CultureInfo.InvariantCulture);
             WindowHeightBox.Text = config.WindowHeight.ToString(CultureInfo.InvariantCulture);
-            _defaultMode = config.DefaultMode ?? string.Empty;
+            ShowModeStatusBarCheckBox.IsChecked = config.ShowModeStatusBar;
+            _defaultMode = ConfigValidator.IsDesktopMode(config.DefaultMode)
+                ? ConfigValidator.DesktopModeName
+                : config.DefaultMode ?? string.Empty;
 
             RefreshDefaultModeOptions();
         }
@@ -113,8 +113,8 @@ namespace MediaShow
                 .Where(name => name.Length > 0)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
-            options.Add(BlankModeName);
-            options.Add(DesktopModeName);
+            options.Add(ConfigValidator.BlankModeName);
+            options.Add(ConfigValidator.DesktopModeName);
 
             _updatingDefaultMode = true;
             try
@@ -220,8 +220,8 @@ namespace MediaShow
                 name = $"Mode{index++}";
             }
             while (_modes.Any(mode => string.Equals(mode.Name, name, StringComparison.OrdinalIgnoreCase))
-                   || string.Equals(name, BlankModeName, StringComparison.OrdinalIgnoreCase)
-                   || string.Equals(name, DesktopModeName, StringComparison.OrdinalIgnoreCase));
+                   || string.Equals(name, ConfigValidator.BlankModeName, StringComparison.OrdinalIgnoreCase)
+                   || ConfigValidator.IsDesktopMode(name));
 
             return name;
         }
@@ -309,6 +309,7 @@ namespace MediaShow
                 DefaultMode = _defaultMode,
                 WindowWidth = width,
                 WindowHeight = height,
+                ShowModeStatusBar = ShowModeStatusBarCheckBox.IsChecked == true,
                 CameraSources = _cameras
                     .Select(camera => new CameraSource
                     {

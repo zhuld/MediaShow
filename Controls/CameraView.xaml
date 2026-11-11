@@ -2,5 +2,5 @@
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       Background="Black">
-    <Image x:Name="PART_Image" Stretch="UniformToFill" />
+    <Image x:Name="PART_Image" Stretch="Fill" />
 </Grid>

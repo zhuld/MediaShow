@@ -2,6 +2,7 @@
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using MediaShow.Models;
@@ -29,6 +30,7 @@ namespace MediaShow.Services
         private readonly int _port;
         private readonly Func<AppConfig> _getConfig;
         private readonly Func<AppConfig, bool> _applyConfig;
+        private readonly Func<string, bool> _applyMode;
         private readonly Func<WindowStatus?>? _getWindowStatus;
         private TcpListener? _listener;
         private Thread? _acceptThread;
@@ -43,16 +45,19 @@ namespace MediaShow.Services
         /// <param name="port">监听端口，小于等于 0 表示不启用</param>
         /// <param name="getConfig">返回当前配置快照（应保证线程安全）</param>
         /// <param name="applyConfig">应用并保存新配置，返回是否成功</param>
+        /// <param name="applyMode">切换到指定模式，返回是否成功</param>
         /// <param name="getWindowStatus">返回主窗口当前实际尺寸，供网页展示</param>
         public WebSettingsService(
             int port,
             Func<AppConfig> getConfig,
             Func<AppConfig, bool> applyConfig,
+            Func<string, bool> applyMode,
             Func<WindowStatus?>? getWindowStatus = null)
         {
             _port = port;
             _getConfig = getConfig ?? throw new ArgumentNullException(nameof(getConfig));
             _applyConfig = applyConfig ?? throw new ArgumentNullException(nameof(applyConfig));
+            _applyMode = applyMode ?? throw new ArgumentNullException(nameof(applyMode));
             _getWindowStatus = getWindowStatus;
         }
 
@@ -179,6 +184,12 @@ namespace MediaShow.Services
                         HandleUpdateConfig(stream, body);
                         return;
                     }
+                    else if (string.Equals(method, "POST", StringComparison.OrdinalIgnoreCase)
+                             && path == "/api/mode")
+                    {
+                        HandleModeChange(stream, body);
+                        return;
+                    }
 
                     WriteJson(stream, 404, new { ok = false, message = "未找到该地址。" });
                 }
@@ -225,6 +236,50 @@ namespace MediaShow.Services
 
             LoggerService.Info($"网页设置已应用：PcName={config.PcName}, UdpPort={config.UdpPort}, WebPort={config.WebPort}, 模式数={config.Modes.Count}");
             WriteJson(stream, 200, new { ok = true, message = "配置已保存并生效。" });
+        }
+
+        private void HandleModeChange(NetworkStream stream, string body)
+        {
+            ModeControlRequest? request;
+            try
+            {
+                request = JsonConvert.DeserializeObject<ModeControlRequest>(body);
+            }
+            catch (JsonException ex)
+            {
+                WriteJson(stream, 400, new { ok = false, message = $"模式指令格式不正确：{ex.Message}" });
+                return;
+            }
+
+            var modeName = request?.Mode?.Trim();
+            if (modeName == null || modeName.Length == 0)
+            {
+                WriteJson(stream, 400, new { ok = false, message = "模式名称不能为空。" });
+                return;
+            }
+
+            var config = _getConfig();
+            var isConfigured = config.Modes != null
+                && config.Modes.Any(mode =>
+                    mode != null && string.Equals(mode.Mode, modeName, StringComparison.OrdinalIgnoreCase));
+            if (!ConfigValidator.IsBuiltInMode(modeName) && !isConfigured)
+            {
+                WriteJson(stream, 400, new { ok = false, message = $"未找到模式“{modeName}”。" });
+                return;
+            }
+
+            if (!_applyMode(modeName))
+            {
+                WriteJson(stream, 503, new { ok = false, message = "模式切换失败，程序可能正在关闭。" });
+                return;
+            }
+
+            WriteJson(stream, 200, new { ok = true, mode = modeName, message = $"已切换到“{modeName}”。" });
+        }
+
+        private sealed class ModeControlRequest
+        {
+            public string? Mode { get; set; }
         }
 
         /// <summary>

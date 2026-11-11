@@ -19,6 +19,7 @@ namespace MediaShow.Services
         private volatile bool _running;
 
         public event Action<string>? ModeChanged;
+        public event Action? ShutdownRequested;
 
         public UdpControlService(string pcName, int port)
         {
@@ -138,6 +139,13 @@ namespace MediaShow.Services
             if (!string.Equals(name, _pcName, StringComparison.OrdinalIgnoreCase))
             {
                 LoggerService.Warn($"UDP 指令忽略：计算机名不匹配，期望 {_pcName}，实际 {name}");
+                return;
+            }
+
+            if (string.Equals(cmd, "Shutdown", StringComparison.OrdinalIgnoreCase))
+            {
+                LoggerService.Info("收到 UDP 关机指令");
+                ShutdownRequested?.Invoke();
                 return;
             }
 

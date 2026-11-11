@@ -244,6 +244,17 @@
 
     .field.wide { grid-column: 1 / -1; }
 
+    .check-option {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        color: var(--text);
+        font-size: 13px;
+        cursor: pointer;
+    }
+
+    .check-option input { accent-color: var(--accent); }
+
     .field label {
         display: flex;
         align-items: center;
@@ -429,6 +440,42 @@
     .mode-tab-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     .mode-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+    .control-mode-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 10px;
+    }
+
+    .control-mode {
+        min-height: 48px;
+        padding: 11px 14px;
+        border: 1px solid var(--line-strong);
+        border-radius: 9px;
+        background: linear-gradient(145deg, rgba(20, 35, 44, .9), rgba(11, 19, 27, .92));
+        color: var(--muted);
+        font-family: var(--body);
+        font-size: 13px;
+        text-align: left;
+        cursor: pointer;
+        transition: border-color .16s ease, color .16s ease, background .16s ease, transform .16s ease;
+    }
+
+    .control-mode:hover:not(:disabled) {
+        border-color: rgba(67, 227, 198, .48);
+        color: var(--text);
+        transform: translateY(-1px);
+    }
+
+    .control-mode.is-active {
+        border-color: rgba(67, 227, 198, .62);
+        background: linear-gradient(145deg, rgba(67, 227, 198, .16), rgba(20, 35, 44, .94));
+        color: var(--accent);
+        box-shadow: inset 3px 0 0 var(--accent);
+    }
+
+    .control-mode:disabled { opacity: .55; cursor: wait; }
+    .control-mode-empty { color: var(--faint); font-size: 12px; }
 
     .editor { min-width: 0; }
 
@@ -669,7 +716,7 @@
                 </svg>
             </div>
             <div class="brand-text">
-                <div class="name">MEDIASHAW</div>
+                <div class="name">MEDIASHOW</div>
                 <div class="sub">Remote config console</div>
             </div>
         </div>
@@ -687,6 +734,19 @@
     <section class="panel">
         <div class="panel-head">
             <span class="panel-num">01</span>
+            <div>
+                <h2 class="panel-title">实时模式控制</h2>
+                <p class="panel-desc">直接切换本机当前显示模式，不会更改启动默认模式。</p>
+            </div>
+        </div>
+        <div class="control-mode-grid" id="controlModeGrid" aria-live="polite">
+            <span class="control-mode-empty">正在读取模式…</span>
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="panel-head">
+            <span class="panel-num">02</span>
             <div>
                 <h2 class="panel-title">基本参数</h2>
                 <p class="panel-desc">对应 config.json 中的基础字段，保存后立即应用到本机程序。</p>
@@ -733,6 +793,15 @@
                 </div>
                 <p class="hint">单位是物理像素，程序按当前屏幕 DPI 自动换算；任一项为 0 表示铺满全屏（例如 0 / 720）。</p>
             </div>
+
+            <div class="field wide">
+                <label for="showModeStatusBar">模式状态栏 <span class="key">ShowModeStatusBar</span></label>
+                <label class="check-option">
+                    <input type="checkbox" id="showModeStatusBar">
+                    显示模式切换状态
+                </label>
+                <p class="hint">开启后，切换模式时会在窗口底部短暂显示当前模式名称。</p>
+            </div>
         </div>
 
         <div class="window-status" id="windowStatusStrip">
@@ -744,7 +813,7 @@
 
     <section class="panel">
         <div class="panel-head">
-            <span class="panel-num">02</span>
+            <span class="panel-num">03</span>
             <div>
                 <h2 class="panel-title">布局模式</h2>
                 <p class="panel-desc">每个模式最多显示 2 个视图，按顺序左右排列；宽高为像素值。</p>
@@ -784,7 +853,7 @@
 
     <section class="panel">
         <div class="panel-head">
-            <span class="panel-num">03</span>
+            <span class="panel-num">04</span>
             <div>
                 <h2 class="panel-title">摄像头清单</h2>
                 <p class="panel-desc">程序每次启动都会重新扫描并覆盖该清单，这里仅作查看；视图归属在上一节修改。</p>
@@ -793,7 +862,7 @@
         <div class="camera-table" id="cameraTable"></div>
     </section>
 
-    <p class="footer-note">CONFIG WRITTEN BY MEDIASHAW · REMOTE PANEL</p>
+    <p class="footer-note">CONFIG WRITTEN BY MEDIASHOW · REMOTE PANEL</p>
 </main>
 
 <div class="savebar">
@@ -811,6 +880,7 @@
     const state = {
         cameras: [],
         modes: [],
+        controlModes: [],
         selected: 0,
         defaultMode: '',
         dirty: false,
@@ -888,6 +958,9 @@
                     H: String(view.H)
                 }))
             }));
+            state.controlModes = state.modes
+                .map(mode => mode.Mode.trim())
+                .filter(Boolean);
             if (state.selected >= state.modes.length) {
                 state.selected = Math.max(state.modes.length - 1, 0);
             }
@@ -897,6 +970,7 @@
             basicFields.WebPort.value = String(config.WebPort);
             basicFields.WindowWidth.value = String(config.WindowWidth);
             basicFields.WindowHeight.value = String(config.WindowHeight);
+            $('showModeStatusBar').checked = config.ShowModeStatusBar !== false;
             state.defaultMode = config.DefaultMode || '';
 
             $('statModes').textContent = state.modes.length;
@@ -904,6 +978,7 @@
 
             state.loaded = true;
             renderAll();
+            renderControlModes();
             markDirty(false);
             clearErrors();
             setConnection(true);
@@ -921,6 +996,64 @@
         renderModeEditor();
         renderCameras();
         refreshDefaultModeOptions();
+    }
+
+    function renderControlModes() {
+        const grid = $('controlModeGrid');
+        const names = [...state.controlModes, 'Blank', 'Desktop_Show'];
+        const uniqueNames = [...new Set(names.map(name => name.toLowerCase()))]
+            .map(lowerName => names.find(name => name.toLowerCase() === lowerName));
+
+        if (uniqueNames.length === 0) {
+            grid.innerHTML = '<span class="control-mode-empty">尚未配置任何模式。</span>';
+            return;
+        }
+
+        grid.innerHTML = uniqueNames.map(name => `
+            <button type="button" class="control-mode" data-mode="${escapeHtml(name)}">
+                ${escapeHtml(name)}
+            </button>
+        `).join('');
+        grid.querySelectorAll('.control-mode').forEach(button => {
+            button.addEventListener('click', () => activateMode(button));
+        });
+    }
+
+    async function activateMode(button) {
+        const modeName = button.dataset.mode;
+        if (!modeName || button.disabled) return;
+
+        const buttons = [...$('controlModeGrid').querySelectorAll('.control-mode')];
+        buttons.forEach(item => { item.disabled = true; });
+        clearErrors();
+        try {
+            const response = await fetch('/api/mode', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ Mode: modeName })
+            });
+            const result = await response.json();
+            if (!response.ok || !result.ok) {
+                throw new Error(result.message || `模式切换失败（HTTP ${response.status}）`);
+            }
+
+            setActiveControlMode(result.mode || modeName);
+            toast(result.message || `已切换到“${modeName}”。`, false);
+            loadWindowStatus();
+        } catch (error) {
+            toast(error.message || '模式切换失败', true);
+        } finally {
+            buttons.forEach(item => { item.disabled = false; });
+        }
+    }
+
+    function setActiveControlMode(modeName) {
+        $('controlModeGrid').querySelectorAll('.control-mode').forEach(button => {
+            button.classList.toggle(
+                'is-active',
+                button.dataset.mode.toLowerCase() === String(modeName || '').toLowerCase()
+            );
+        });
     }
 
     function renderModeList() {
@@ -1054,6 +1187,7 @@
             if (!response.ok) throw new Error('HTTP ' + response.status);
 
             const status = await response.json();
+            setActiveControlMode(status.CurrentMode);
             const scale = Math.round((status.DpiScaleX || 1) * 100);
             const dip = `${formatNumber(status.WidthDip)} × ${formatNumber(status.HeightDip)} DIP`;
             const state_ = status.IsMinimized ? '已最小化（Desktop）' : '正常显示';
@@ -1074,13 +1208,14 @@
         const names = state.modes.map(mode => (mode.Mode || '').trim()).filter(Boolean);
         const options = [...new Set(names)];
         options.push('Blank');
-        options.push('Desktop');
+        options.push('Desktop_Show');
 
         const desired = state.defaultMode || options[0];
         select.innerHTML = options.map(name =>
             `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
 
-        const matched = options.find(name => name.toLowerCase() === desired.toLowerCase()) || options[0];
+        const matched = options.find(name => name.toLowerCase() === desired.toLowerCase())
+            || (desired.toLowerCase() === 'desktop' ? 'Desktop_Show' : options[0]);
         select.value = matched;
         state.defaultMode = matched;
     }
@@ -1093,6 +1228,7 @@
             DefaultMode: $('defaultMode').value,
             WindowWidth: Number(basicFields.WindowWidth.value),
             WindowHeight: Number(basicFields.WindowHeight.value),
+            ShowModeStatusBar: $('showModeStatusBar').checked,
             CameraSources: state.cameras,
             Modes: state.modes.map(mode => ({
                 Mode: (mode.Mode || '').trim(),
@@ -1187,6 +1323,8 @@
         state.defaultMode = event.target.value;
         markDirty(true);
     });
+
+    $('showModeStatusBar').addEventListener('change', () => markDirty(true));
 
     $('modeName').addEventListener('input', event => {
         const mode = currentMode();

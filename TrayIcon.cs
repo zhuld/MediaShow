@@ -139,15 +139,15 @@ namespace MediaShow
             }
 
             // 内置模式：Blank（黑屏），配置中已定义同名模式时不重复添加
-            if (!HasConfiguredMode("Blank"))
+            if (!HasConfiguredMode(ConfigValidator.BlankModeName))
             {
-                var blankItem = new ToolStripMenuItem("Blank");
+                var blankItem = new ToolStripMenuItem(ConfigValidator.BlankModeName);
                 blankItem.Click += (s, e) => BlankRequested?.Invoke();
                 menu.Items.Add(blankItem);
             }
 
             // 始终添加的特殊模式
-            var desktopItem = new ToolStripMenuItem("Desktop");
+            var desktopItem = new ToolStripMenuItem(ConfigValidator.DesktopModeName);
             desktopItem.Click += (s, e) => DesktopRequested?.Invoke();
             menu.Items.Add(desktopItem);
 

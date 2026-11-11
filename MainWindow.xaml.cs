@@ -32,8 +32,6 @@ namespace MediaShow
         private bool _allowClose;
         private bool _cleanupStarted;
         private HwndSource? _windowSource;
-        private const string BlankModeName = "Blank";
-        private const string DesktopModeName = "Desktop";
         private string _currentModeName = string.Empty;
 
         public MainWindow()
@@ -115,6 +113,10 @@ namespace MediaShow
                     LoggerService.Info($"网络指令切换布局：{modeName}");
                 });
             };
+            service.ShutdownRequested += () =>
+            {
+                DispatchToUi(() => ExecuteShutdown("UDP"));
+            };
             return service;
         }
 
@@ -154,7 +156,7 @@ namespace MediaShow
         {
             if (_isShuttingDown) return;
 
-            ApplyViewsLayout(BlankModeName);
+            ApplyViewsLayout(ConfigValidator.BlankModeName);
         }
 
         private void OnTrayDesktopRequested()
@@ -166,6 +168,11 @@ namespace MediaShow
         }
 
         private void OnTrayShutdownRequested()
+        {
+            ExecuteShutdown("手动");
+        }
+
+        private void ExecuteShutdown(string source)
         {
             if (_isShuttingDown) return;
 
@@ -186,7 +193,7 @@ namespace MediaShow
 
             _currentModeName = "Shutdown";
             ShowModeStatus("Shutdown");
-            LoggerService.Info("手动切换模式：Shutdown");
+            LoggerService.Info($"{source}触发关机");
         }
 
         private void OnTraySettingsRequested()
@@ -242,6 +249,12 @@ namespace MediaShow
             _config.DefaultMode = updated.DefaultMode;
             _config.WindowWidth = updated.WindowWidth;
             _config.WindowHeight = updated.WindowHeight;
+            _config.ShowModeStatusBar = updated.ShowModeStatusBar;
+            if (!_config.ShowModeStatusBar)
+            {
+                _statusTimer.Stop();
+                ModeStatusBar.Visibility = Visibility.Collapsed;
+            }
             _config.Modes = updated.Modes;
 
             var saved = _configService.Save(_config);
@@ -281,9 +294,9 @@ namespace MediaShow
 
                 // 尽量保持当前显示的画面：Blank 保持黑屏，其他模式被删除时回退到默认模式
                 string targetMode;
-                if (string.Equals(previousMode, BlankModeName, StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(previousMode, ConfigValidator.BlankModeName, StringComparison.OrdinalIgnoreCase))
                 {
-                    targetMode = BlankModeName;
+                    targetMode = ConfigValidator.BlankModeName;
                 }
                 else if (_config.Modes.Any(mode => string.Equals(mode.Mode, previousMode, StringComparison.OrdinalIgnoreCase)))
                 {
@@ -338,7 +351,12 @@ namespace MediaShow
 
             try
             {
-                _webService = new WebSettingsService(_config.WebPort, GetConfigSnapshot, ApplySettingsFromWeb, GetWindowStatusSnapshot);
+                _webService = new WebSettingsService(
+                    _config.WebPort,
+                    GetConfigSnapshot,
+                    ApplySettingsFromWeb,
+                    ApplyModeFromWeb,
+                    GetWindowStatusSnapshot);
                 _webService.Start();
             }
             catch (Exception ex)
@@ -398,6 +416,36 @@ namespace MediaShow
             catch (Exception ex)
             {
                 LoggerService.Error("应用网页设置失败", ex);
+                return false;
+            }
+        }
+
+        private bool ApplyModeFromWeb(string modeName)
+        {
+            if (_isShuttingDown) return false;
+
+            try
+            {
+                return Dispatcher.Invoke(() =>
+                {
+                    if (_isShuttingDown) return false;
+
+                    var configuredMode = _config.Modes.FirstOrDefault(mode =>
+                        string.Equals(mode.Mode, modeName, StringComparison.OrdinalIgnoreCase));
+                    if (!ConfigValidator.IsBuiltInMode(modeName) && configuredMode == null)
+                    {
+                        return false;
+                    }
+
+                    ApplyViewsLayout(modeName);
+                    ShowModeStatus(_currentModeName);
+                    LoggerService.Info($"网页控制切换模式：{_currentModeName}");
+                    return true;
+                });
+            }
+            catch (Exception ex)
+            {
+                LoggerService.Error($"网页控制切换模式失败：{modeName}", ex);
                 return false;
             }
         }
@@ -652,8 +700,8 @@ namespace MediaShow
         private void ApplyBlankMode()
         {
             ClearCameraViews();
-            _currentModeName = BlankModeName;
-            ShowModeStatus(BlankModeName);
+            _currentModeName = ConfigValidator.BlankModeName;
+            ShowModeStatus(ConfigValidator.BlankModeName);
             LoggerService.Info("切换到 Blank 模式：黑屏，不显示任何内容");
         }
 
@@ -662,10 +710,10 @@ namespace MediaShow
         /// </summary>
         private void ApplyDesktopMode()
         {
-            _currentModeName = DesktopModeName;
+            _currentModeName = ConfigValidator.DesktopModeName;
             Hide();
             WindowState = WindowState.Normal;
-            ShowModeStatus(DesktopModeName);
+            ShowModeStatus(ConfigValidator.DesktopModeName);
             LoggerService.Info("切换到 Desktop 模式：隐藏窗口以显示桌面");
         }
 
@@ -684,7 +732,7 @@ namespace MediaShow
             var modeName = requestedMode ?? _config.DefaultMode;
 
             // 内置模式 Desktop：直接隐藏，无需先恢复窗口
-            if (string.Equals(modeName, DesktopModeName, StringComparison.OrdinalIgnoreCase))
+            if (ConfigValidator.IsDesktopMode(modeName))
             {
                 ApplyDesktopMode();
                 return;
@@ -694,7 +742,7 @@ namespace MediaShow
             EnsureWindowVisible();
 
             // 内置模式 Blank：清空所有摄像头画面，只显示黑色背景
-            if (string.Equals(modeName, BlankModeName, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(modeName, ConfigValidator.BlankModeName, StringComparison.OrdinalIgnoreCase))
             {
                 ApplyBlankMode();
                 return;
@@ -819,7 +867,14 @@ namespace MediaShow
 
         private void ShowModeStatus(string modeName)
         {
-            if (string.IsNullOrWhiteSpace(modeName) || _isShuttingDown) return;
+            if (_isShuttingDown) return;
+            if (!_config.ShowModeStatusBar)
+            {
+                _statusTimer.Stop();
+                ModeStatusBar.Visibility = Visibility.Collapsed;
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(modeName)) return;
 
             StatusText.Text = modeName;
             ModeStatusBar.Visibility = Visibility.Visible;

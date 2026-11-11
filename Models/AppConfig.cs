@@ -13,6 +13,7 @@ namespace MediaShow.Models
         public string DefaultMode { get; set; } = "Single";
         public int WindowWidth { get; set; } = 1280;
         public int WindowHeight { get; set; } = 720;
+        public bool ShowModeStatusBar { get; set; } = true;
         public List<CameraSource> CameraSources { get; set; } = new();
         public List<ViewGroup> Modes { get; set; } = new();
     }
