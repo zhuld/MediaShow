@@ -600,7 +600,22 @@ namespace MediaShow
             }
 
             ShowModeStatus(_currentModeName);
+            MoveCursorToBottomLeft();
             LoggerService.Info("主窗口加载完成");
+        }
+
+        private void MoveCursorToBottomLeft()
+        {
+            try
+            {
+                var screen = System.Windows.Forms.Screen.FromHandle(new WindowInteropHelper(this).Handle);
+                var bounds = screen.Bounds;
+                System.Windows.Forms.Cursor.Position = new System.Drawing.Point(bounds.Left, bounds.Bottom - 1);
+            }
+            catch (Exception ex)
+            {
+                LoggerService.Error("启动时移动鼠标到屏幕左下角失败", ex);
+            }
         }
 
         private void Window_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
