@@ -13,6 +13,20 @@ namespace MediaShow.Services
         public const string BlankModeName = "Blank";
         public const string DesktopModeName = "Desktop_Show";
 
+        /// <summary>视图来源类型：摄像头</summary>
+        public const string CameraSourceType = "Camera";
+
+        /// <summary>视图来源类型：视频源</summary>
+        public const string VideoSourceType = "Video";
+
+        public const string DefaultVideoExtensions = ".mp4;.avi;.wmv";
+
+        /// <summary>判断视图是否播放视频源</summary>
+        public static bool IsVideoView(ViewItem? view)
+        {
+            return view != null && string.Equals(view.SourceType, VideoSourceType, StringComparison.OrdinalIgnoreCase);
+        }
+
         /// <summary>判断是否为内置模式（不依赖 config.json 中的 Modes 定义）</summary>
         public static bool IsBuiltInMode(string? modeName)
         {
@@ -33,7 +47,22 @@ namespace MediaShow.Services
             config.PcName = (config.PcName ?? string.Empty).Trim();
             config.DefaultMode = (config.DefaultMode ?? string.Empty).Trim();
             config.CameraSources ??= new List<CameraSource>();
+            config.VideoSources ??= new List<VideoSource>();
             config.Modes ??= new List<ViewGroup>();
+
+            foreach (var video in config.VideoSources)
+            {
+                if (video == null) continue;
+
+                video.Id = (video.Id ?? string.Empty).Trim();
+                video.Name = (video.Name ?? string.Empty).Trim();
+                video.FolderPath = (video.FolderPath ?? string.Empty).Trim();
+                video.Extensions = (video.Extensions ?? string.Empty).Trim();
+                if (video.Extensions.Length == 0)
+                {
+                    video.Extensions = DefaultVideoExtensions;
+                }
+            }
 
             foreach (var mode in config.Modes)
             {
@@ -47,6 +76,8 @@ namespace MediaShow.Services
                     if (view == null) continue;
 
                     view.CameraId = (view.CameraId ?? string.Empty).Trim();
+                    view.VideoId = (view.VideoId ?? string.Empty).Trim();
+                    view.SourceType = IsVideoView(view) ? VideoSourceType : CameraSourceType;
                 }
             }
         }
@@ -73,6 +104,17 @@ namespace MediaShow.Services
                         Height = camera.Height
                     })
                     .ToList(),
+                VideoSources = (config.VideoSources ?? new List<VideoSource>())
+                    .Select(video => new VideoSource
+                    {
+                        Id = video.Id,
+                        Name = video.Name,
+                        FolderPath = video.FolderPath,
+                        Extensions = video.Extensions,
+                        Loop = video.Loop,
+                        Shuffle = video.Shuffle
+                    })
+                    .ToList(),
                 Modes = (config.Modes ?? new List<ViewGroup>())
                     .Select(mode => new ViewGroup
                     {
@@ -80,7 +122,9 @@ namespace MediaShow.Services
                         Views = (mode.Views ?? new List<ViewItem>())
                             .Select(view => new ViewItem
                             {
+                                SourceType = view.SourceType,
                                 CameraId = view.CameraId,
+                                VideoId = view.VideoId,
                                 W = view.W,
                                 H = view.H
                             })
@@ -129,6 +173,35 @@ namespace MediaShow.Services
                 errors.Add("窗口高度必须是大于等于 0 的整数（0 表示铺满全屏）。");
             }
 
+            var videoIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (config.VideoSources != null)
+            {
+                foreach (var video in config.VideoSources)
+                {
+                    if (video == null) continue;
+
+                    var videoId = (video.Id ?? string.Empty).Trim();
+                    if (videoId.Length == 0)
+                    {
+                        errors.Add("视频源 ID 不能为空。");
+                    }
+                    else if (!videoIds.Add(videoId))
+                    {
+                        errors.Add($"视频源 ID 重复：{videoId}");
+                    }
+
+                    if (string.IsNullOrWhiteSpace(video.FolderPath))
+                    {
+                        errors.Add($"视频源“{(string.IsNullOrWhiteSpace(video.Name) ? videoId : video.Name)}”的目录不能为空。");
+                    }
+
+                    if (string.IsNullOrWhiteSpace(video.Extensions))
+                    {
+                        errors.Add($"视频源“{(string.IsNullOrWhiteSpace(video.Name) ? videoId : video.Name)}”的扩展名不能为空，例如 .mp4;.avi。");
+                    }
+                }
+            }
+
             var modeNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             if (config.Modes != null)
             {
@@ -164,6 +237,14 @@ namespace MediaShow.Services
                         if (view.H <= 0)
                         {
                             errors.Add($"模式“{modeName}”的视图高度必须是大于 0 的数字。");
+                            break;
+                        }
+
+                        if (IsVideoView(view)
+                            && !string.IsNullOrWhiteSpace(view.VideoId)
+                            && !videoIds.Contains(view.VideoId.Trim()))
+                        {
+                            errors.Add($"模式“{modeName}”的视图引用了不存在的视频源：{view.VideoId}");
                             break;
                         }
                     }

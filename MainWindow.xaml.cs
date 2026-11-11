@@ -24,6 +24,7 @@ namespace MediaShow
 
         private readonly Dictionary<string, CameraService> _cameraServices = new();
         private readonly Dictionary<ViewItem, Controls.CameraView> _cameraViews = new();
+        private readonly Dictionary<ViewItem, Controls.VideoView> _videoViews = new();
         private readonly DispatcherTimer _statusTimer = new()
         {
             Interval = TimeSpan.FromSeconds(5)
@@ -255,6 +256,7 @@ namespace MediaShow
                 _statusTimer.Stop();
                 ModeStatusBar.Visibility = Visibility.Collapsed;
             }
+            _config.VideoSources = updated.VideoSources;
             _config.Modes = updated.Modes;
 
             var saved = _configService.Save(_config);
@@ -651,6 +653,19 @@ namespace MediaShow
             IsEnabled = false;
             _statusTimer.Stop();
 
+            // 视频视图必须在 UI 线程停止，避免解码线程与显示控件在后台线程释放
+            foreach (var videoView in _videoViews.Values.ToList())
+            {
+                try
+                {
+                    videoView.Stop();
+                }
+                catch (Exception ex)
+                {
+                    LoggerService.Error("停止视频播放失败", ex);
+                }
+            }
+
             await Task.Run(() =>
             {
                 foreach (var service in _cameraServices.Values)
@@ -714,7 +729,7 @@ namespace MediaShow
         /// </summary>
         private void ApplyBlankMode()
         {
-            ClearCameraViews();
+            ClearViews();
             _currentModeName = ConfigValidator.BlankModeName;
             ShowModeStatus(ConfigValidator.BlankModeName);
             LoggerService.Info("切换到 Blank 模式：黑屏，不显示任何内容");
@@ -732,14 +747,28 @@ namespace MediaShow
             LoggerService.Info("切换到 Desktop 模式：隐藏窗口以显示桌面");
         }
 
-        private void ClearCameraViews()
+        private void ClearViews()
         {
-            foreach (var view in _cameraViews.Values)
+            foreach (var item in _cameraViews.Keys.Concat(_videoViews.Keys).ToList())
             {
-                LayoutCanvas.Children.Remove(view);
+                RemoveView(item);
+            }
+        }
+
+        private void RemoveView(ViewItem item)
+        {
+            if (_cameraViews.TryGetValue(item, out var cameraView))
+            {
+                _cameraViews.Remove(item);
+                LayoutCanvas.Children.Remove(cameraView);
             }
 
-            _cameraViews.Clear();
+            if (_videoViews.TryGetValue(item, out var videoView))
+            {
+                _videoViews.Remove(item);
+                LayoutCanvas.Children.Remove(videoView);
+                videoView.Dispose();
+            }
         }
 
         private void ApplyViewsLayout(string? requestedMode = null)
@@ -788,16 +817,16 @@ namespace MediaShow
 
             if (items == null || items.Count == 0)
             {
-                ClearCameraViews();
+                ClearViews();
                 LoggerService.Info($"模式 {group.Mode} 没有配置视图，清空显示内容");
                 return;
             }
 
             var visibleItems = items.Take(2).ToList();
-            foreach (var oldView in _cameraViews.Keys.Where(item => !visibleItems.Contains(item)).ToList())
+            foreach (var staleItem in _cameraViews.Keys.Concat(_videoViews.Keys)
+                         .Where(item => !visibleItems.Contains(item)).ToList())
             {
-                LayoutCanvas.Children.Remove(_cameraViews[oldView]);
-                _cameraViews.Remove(oldView);
+                RemoveView(staleItem);
             }
 
             double canvasW = LayoutCanvas.ActualWidth;
@@ -813,8 +842,8 @@ namespace MediaShow
                 var height = item.H / dpi.DpiScaleY;
                 var x = (canvasW - width) / 2.0;
                 var y = (canvasH - height) / 2.0;
-                CreateCameraView(item, x, y, width, height, 0);
-                LoggerService.Info($"单视图布局：居中显示{item.CameraId} ({item.W}x{item.H})");
+                CreateView(item, x, y, width, height, 0);
+                LoggerService.Info($"单视图布局：居中显示{DescribeView(item)} ({item.W}x{item.H})");
             }
             else
             {
@@ -830,10 +859,10 @@ namespace MediaShow
                 var y0 = (canvasH - height0) / 2.0;
                 var y1 = (canvasH - height1) / 2.0;
 
-                CreateCameraView(item0, startX, y0, width0, height0, 0);
-                CreateCameraView(item1, startX + width0, y1, width1, height1, 1);
+                CreateView(item0, startX, y0, width0, height0, 0);
+                CreateView(item1, startX + width0, y1, width1, height1, 1);
 
-                LoggerService.Info($"双视图布局：左右排列[{item0.CameraId}({item0.W}x{item0.H})] + [{item1.CameraId}({item1.W}x{item1.H})]");
+                LoggerService.Info($"双视图布局：左右排列[{DescribeView(item0)}({item0.W}x{item0.H})] + [{DescribeView(item1)}({item1.W}x{item1.H})]");
                 if (items.Count > 2)
                 {
                     LoggerService.Warn($"视图数量 {items.Count} 超过 2，暂时仅显示前 2 个");
@@ -841,8 +870,61 @@ namespace MediaShow
             }
         }
 
-        private Controls.CameraView CreateCameraView(ViewItem item, double x, double y, double w, double h, int zIndex)
+        private static string DescribeView(ViewItem item)
         {
+            return ConfigValidator.IsVideoView(item) ? $"视频:{item.VideoId}" : $"摄像头:{item.CameraId}";
+        }
+
+        /// <summary>
+        /// 创建（或复用）视图元素：根据 ViewItem.SourceType 决定使用摄像头控件或视频控件
+        /// </summary>
+        private FrameworkElement CreateView(ViewItem item, double x, double y, double w, double h, int zIndex)
+        {
+            if (ConfigValidator.IsVideoView(item))
+            {
+                if (_cameraViews.ContainsKey(item))
+                {
+                    RemoveView(item);
+                }
+
+                if (_videoViews.TryGetValue(item, out var existingVideo))
+                {
+                    existingVideo.Width = w;
+                    existingVideo.Height = h;
+                    Canvas.SetLeft(existingVideo, x);
+                    Canvas.SetTop(existingVideo, y);
+                    Canvas.SetZIndex(existingVideo, zIndex);
+                    return existingVideo;
+                }
+
+                var videoSource = FindVideoSource(item.VideoId);
+                if (videoSource == null)
+                {
+                    LoggerService.Warn($"视图引用的视频源不存在：{item.VideoId}");
+                }
+
+                var videoView = new Controls.VideoView
+                {
+                    Width = w,
+                    Height = h
+                };
+                videoView.Configure(videoSource, item.VideoId);
+                Canvas.SetLeft(videoView, x);
+                Canvas.SetTop(videoView, y);
+                Canvas.SetZIndex(videoView, zIndex);
+
+                _videoViews[item] = videoView;
+                LayoutCanvas.Children.Add(videoView);
+                LoggerService.Info($"创建视频显示窗口：VideoId={item.VideoId}, X={x}, Y={y}, W={w}, H={h}");
+                videoView.Play();
+                return videoView;
+            }
+
+            if (_videoViews.ContainsKey(item))
+            {
+                RemoveView(item);
+            }
+
             if (_cameraViews.TryGetValue(item, out var existingView))
             {
                 existingView.Width = w;
@@ -867,6 +949,14 @@ namespace MediaShow
             LayoutCanvas.Children.Add(camView);
             LoggerService.Info($"创建摄像头显示窗口：CameraId={item.CameraId}, X={x}, Y={y}, W={w}, H={h}");
             return camView;
+        }
+
+        private VideoSource? FindVideoSource(string videoId)
+        {
+            if (string.IsNullOrWhiteSpace(videoId)) return null;
+
+            return _config.VideoSources?.FirstOrDefault(
+                video => string.Equals(video.Id, videoId, StringComparison.OrdinalIgnoreCase));
         }
 
         private void UpdateCameraFrames(string cameraId, System.Windows.Media.Imaging.BitmapSource bitmap)
@@ -1021,6 +1111,12 @@ namespace MediaShow
                 for (var i = 0; i < group.Views.Count; i++)
                 {
                     var view = group.Views[i];
+                    // 视频视图不参与摄像头关联修正
+                    if (ConfigValidator.IsVideoView(view))
+                    {
+                        continue;
+                    }
+
                     if (string.IsNullOrWhiteSpace(view.CameraId) || !cameraIds.Contains(view.CameraId))
                     {
                         view.CameraId = i < cameras.Count ? cameras[i].Id : string.Empty;

@@ -50,8 +50,10 @@ namespace MediaShow.Services
                 if (Config.UdpPort <= 0 || Config.UdpPort > 65535) Config.UdpPort = 30000;
                 if (Config.WebPort < 0 || Config.WebPort > 65535) Config.WebPort = 8000;
                 if (Config.CameraSources == null) Config.CameraSources = new();
+                if (Config.VideoSources == null) Config.VideoSources = new();
                 if (Config.Modes == null) Config.Modes = new();
 
+                ConfigValidator.Normalize(Config);
                 return Config;
             }
         }

@@ -12,11 +12,14 @@ namespace MediaShow.Models
     }
 
     /// <summary>
-    /// 单个子视图：包含 CameraId 以及宽高
+    /// 单个子视图：来源为摄像头（CameraId）或视频源（VideoId），以及宽高
     /// </summary>
     public class ViewItem
     {
+        /// <summary>来源类型：Camera（默认）或 Video</summary>
+        public string SourceType { get; set; } = "Camera";
         public string CameraId { get; set; } = string.Empty;
+        public string VideoId { get; set; } = string.Empty;
         public double W { get; set; } = 640;
         public double H { get; set; } = 480;
     }

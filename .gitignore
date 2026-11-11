@@ -63,4 +63,7 @@ $RECYCLE.BIN/
 ## OS
 .DS_Store
 
+## samples
+Test*/
+
 # 结束

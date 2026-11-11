@@ -21,6 +21,7 @@ namespace MediaShow
     public partial class SettingsWindow : Window
     {
         private readonly ObservableCollection<ModeEditor> _modes = new();
+        private readonly ObservableCollection<VideoSource> _videoSources = new();
         private readonly List<CameraSource> _cameras;
         private readonly List<CameraSource> _cameraOptions;
         private string _defaultMode = string.Empty;
@@ -73,6 +74,31 @@ namespace MediaShow
             CameraIdColumn.ItemsSource = _cameraOptions;
             CameraIdColumn.DisplayMemberPath = nameof(CameraSource.Name);
             CameraIdColumn.SelectedValuePath = nameof(CameraSource.Id);
+
+            SourceTypeColumn.ItemsSource = new List<SourceTypeOption>
+            {
+                new() { Id = ConfigValidator.CameraSourceType, Name = "摄像头" },
+                new() { Id = ConfigValidator.VideoSourceType, Name = "视频" }
+            };
+            SourceTypeColumn.DisplayMemberPath = nameof(SourceTypeOption.Name);
+            SourceTypeColumn.SelectedValuePath = nameof(SourceTypeOption.Id);
+
+            foreach (var video in config.VideoSources ?? new List<VideoSource>())
+            {
+                _videoSources.Add(new VideoSource
+                {
+                    Id = video.Id,
+                    Name = video.Name,
+                    FolderPath = video.FolderPath,
+                    Extensions = video.Extensions,
+                    Loop = video.Loop,
+                    Shuffle = video.Shuffle
+                });
+            }
+
+            VideoGrid.ItemsSource = _videoSources;
+            VideoGrid.CellEditEnding += VideoGrid_CellEditEnding;
+            RefreshVideoOptions();
 
             PcNameBox.Text = config.PcName ?? string.Empty;
             UdpPortBox.Text = config.UdpPort.ToString(CultureInfo.InvariantCulture);
@@ -211,6 +237,91 @@ namespace MediaShow
             }
         }
 
+        private string GenerateUniqueVideoId()
+        {
+            var index = _videoSources.Count + 1;
+            string id;
+            do
+            {
+                id = $"vid_{index++}";
+            }
+            while (_videoSources.Any(video => string.Equals(video.Id, id, StringComparison.OrdinalIgnoreCase)));
+
+            return id;
+        }
+
+        private void AddVideo_Click(object sender, RoutedEventArgs e)
+        {
+            var video = new VideoSource
+            {
+                Id = GenerateUniqueVideoId(),
+                Name = $"视频源 {_videoSources.Count + 1}",
+                Extensions = ConfigValidator.DefaultVideoExtensions,
+                Loop = true
+            };
+
+            _videoSources.Add(video);
+            VideoGrid.SelectedItem = video;
+            RefreshVideoOptions();
+        }
+
+        private void RemoveVideo_Click(object sender, RoutedEventArgs e)
+        {
+            if (VideoGrid.SelectedItem is not VideoSource video) return;
+
+            var result = MessageBox.Show(
+                $"确定删除视频源“{(string.IsNullOrWhiteSpace(video.Name) ? video.Id : video.Name)}”吗？",
+                "删除视频源",
+                MessageBoxButton.OKCancel,
+                MessageBoxImage.Question);
+            if (result != MessageBoxResult.OK) return;
+
+            _videoSources.Remove(video);
+            RefreshVideoOptions();
+        }
+
+        private void BrowseVideoFolder_Click(object sender, RoutedEventArgs e)
+        {
+            if (VideoGrid.SelectedItem is not VideoSource video)
+            {
+                MessageBox.Show("请先在列表中选中要设置目录的视频源。", "选择目录", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            using var dialog = new System.Windows.Forms.FolderBrowserDialog
+            {
+                Description = "选择视频所在目录（包含子文件夹）",
+                SelectedPath = Directory.Exists(video.FolderPath) ? video.FolderPath : AppDomain.CurrentDomain.BaseDirectory,
+                ShowNewFolderButton = false
+            };
+
+            if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                video.FolderPath = dialog.SelectedPath;
+                VideoGrid.Items.Refresh();
+                RefreshVideoOptions();
+            }
+        }
+
+        private void VideoGrid_CellEditEnding(object? sender, DataGridCellEditEndingEventArgs e)
+        {
+            // 等单元格提交完成后再刷新视频源下拉框中的名称
+            Dispatcher.BeginInvoke(new Action(RefreshVideoOptions), System.Windows.Threading.DispatcherPriority.Background);
+        }
+
+        private void RefreshVideoOptions()
+        {
+            var options = new List<VideoSource>
+            {
+                new() { Id = string.Empty, Name = "(不显示)" }
+            };
+            options.AddRange(_videoSources);
+
+            VideoIdColumn.ItemsSource = options;
+            VideoIdColumn.DisplayMemberPath = nameof(VideoSource.Name);
+            VideoIdColumn.SelectedValuePath = nameof(VideoSource.Id);
+        }
+
         private string GenerateUniqueModeName()
         {
             var index = _modes.Count + 1;
@@ -231,6 +342,8 @@ namespace MediaShow
             // 提交仍处于编辑状态的单元格，避免最后输入的内容未写回绑定源
             ViewsGrid.CommitEdit(DataGridEditingUnit.Cell, true);
             ViewsGrid.CommitEdit(DataGridEditingUnit.Row, true);
+            VideoGrid.CommitEdit(DataGridEditingUnit.Cell, true);
+            VideoGrid.CommitEdit(DataGridEditingUnit.Row, true);
 
             if (!TryBuildConfig(out var config, out var error))
             {
@@ -292,7 +405,11 @@ namespace MediaShow
 
                     views.Add(new ViewItem
                     {
+                        SourceType = string.Equals(view.SourceType, ConfigValidator.VideoSourceType, StringComparison.OrdinalIgnoreCase)
+                            ? ConfigValidator.VideoSourceType
+                            : ConfigValidator.CameraSourceType,
                         CameraId = (view.CameraId ?? string.Empty).Trim(),
+                        VideoId = (view.VideoId ?? string.Empty).Trim(),
                         W = viewWidth,
                         H = viewHeight
                     });
@@ -318,6 +435,19 @@ namespace MediaShow
                         Index = camera.Index,
                         Width = camera.Width,
                         Height = camera.Height
+                    })
+                    .ToList(),
+                VideoSources = _videoSources
+                    .Select(video => new VideoSource
+                    {
+                        Id = (video.Id ?? string.Empty).Trim(),
+                        Name = (video.Name ?? string.Empty).Trim(),
+                        FolderPath = (video.FolderPath ?? string.Empty).Trim(),
+                        Extensions = string.IsNullOrWhiteSpace(video.Extensions)
+                            ? ConfigValidator.DefaultVideoExtensions
+                            : video.Extensions.Trim(),
+                        Loop = video.Loop,
+                        Shuffle = video.Shuffle
                     })
                     .ToList(),
                 Modes = modes
@@ -401,7 +531,11 @@ namespace MediaShow
                 {
                     editor.Views.Add(new ViewEditor
                     {
+                        SourceType = ConfigValidator.IsVideoView(view)
+                            ? ConfigValidator.VideoSourceType
+                            : ConfigValidator.CameraSourceType,
                         CameraId = view.CameraId ?? string.Empty,
+                        VideoId = view.VideoId ?? string.Empty,
                         W = view.W.ToString(CultureInfo.InvariantCulture),
                         H = view.H.ToString(CultureInfo.InvariantCulture)
                     });
@@ -415,14 +549,28 @@ namespace MediaShow
     /// <summary>设置对话框中可编辑的视图（宽高保留文本形式，便于校验输入）</summary>
     internal class ViewEditor : ObservableObject
     {
+        private string _sourceType = ConfigValidator.CameraSourceType;
         private string _cameraId = string.Empty;
+        private string _videoId = string.Empty;
         private string _w = "640";
         private string _h = "480";
+
+        public string SourceType
+        {
+            get => _sourceType;
+            set => Set(ref _sourceType, string.IsNullOrWhiteSpace(value) ? ConfigValidator.CameraSourceType : value);
+        }
 
         public string CameraId
         {
             get => _cameraId;
             set => Set(ref _cameraId, value ?? string.Empty);
+        }
+
+        public string VideoId
+        {
+            get => _videoId;
+            set => Set(ref _videoId, value ?? string.Empty);
         }
 
         public string W
@@ -436,6 +584,13 @@ namespace MediaShow
             get => _h;
             set => Set(ref _h, value ?? string.Empty);
         }
+    }
+
+    /// <summary>视图来源类型下拉框选项（摄像头 / 视频）</summary>
+    internal class SourceTypeOption
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
     }
 
     internal abstract class ObservableObject : INotifyPropertyChanged

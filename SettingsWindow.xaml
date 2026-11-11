@@ -289,17 +289,25 @@
                             <TextBlock Grid.Row="1"
                                        Style="{StaticResource FieldHint}"
                                        Margin="0,8,0,8"
-                                       Text="视图按顺序左右排列，最多显示 2 个；宽高为像素值（按 96 DPI 换算）。"/>
+                                       Text="视图可选择摄像头或视频源，按顺序左右排列，最多显示 2 个；宽高为像素值（按 96 DPI 换算）。"/>
 
                             <DataGrid x:Name="ViewsGrid" Grid.Row="2" ItemsSource="{Binding Views}">
                                 <DataGrid.Columns>
+                                    <DataGridComboBoxColumn x:Name="SourceTypeColumn"
+                                                            Header="类型"
+                                                            Width="80"
+                                                            SelectedValueBinding="{Binding SourceType}"/>
                                     <DataGridComboBoxColumn x:Name="CameraIdColumn"
                                                             Header="摄像头"
                                                             Width="*"
                                                             SelectedValueBinding="{Binding CameraId}"/>
-                                    <DataGridTextColumn Header="宽度 (W)" Width="110"
+                                    <DataGridComboBoxColumn x:Name="VideoIdColumn"
+                                                            Header="视频源"
+                                                            Width="*"
+                                                            SelectedValueBinding="{Binding VideoId}"/>
+                                    <DataGridTextColumn Header="宽度 (W)" Width="76"
                                                         Binding="{Binding W, UpdateSourceTrigger=PropertyChanged}"/>
-                                    <DataGridTextColumn Header="高度 (H)" Width="110"
+                                    <DataGridTextColumn Header="高度 (H)" Width="76"
                                                         Binding="{Binding H, UpdateSourceTrigger=PropertyChanged}"/>
                                 </DataGrid.Columns>
                             </DataGrid>
@@ -335,6 +343,40 @@
                                 <DataGridTextColumn Header="高" Binding="{Binding Height}" Width="70"/>
                             </DataGrid.Columns>
                         </DataGrid>
+                    </Grid>
+                </Border>
+            </TabItem>
+
+            <TabItem Header="视频源">
+                <Border Style="{StaticResource CardBorder}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0"
+                                   Style="{StaticResource FieldHint}"
+                                   Margin="0,0,0,10"
+                                   Text="每个视频源指向一个本地目录，程序会递归扫描其中的视频文件并按顺序循环播放。支持的格式取决于系统已安装的解码器（如 mp4/H.264、wmv）；无法播放的文件会自动跳过。视频在“布局模式”中通过视图的类型“视频”选用。"/>
+                        <DataGrid x:Name="VideoGrid" Grid.Row="1">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="80" IsReadOnly="True"/>
+                                <DataGridTextColumn Header="名称" Binding="{Binding Name}" Width="*"/>
+                                <DataGridTextColumn Header="目录" Binding="{Binding FolderPath}" Width="2*"/>
+                                <DataGridTextColumn Header="扩展名" Binding="{Binding Extensions}" Width="130"/>
+                                <DataGridCheckBoxColumn Header="循环" Binding="{Binding Loop}" Width="56"/>
+                                <DataGridCheckBoxColumn Header="随机" Binding="{Binding Shuffle}" Width="56"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,10,0,0">
+                            <Button Content="添加" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"
+                                    Click="AddVideo_Click"/>
+                            <Button Content="删除" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"
+                                    Click="RemoveVideo_Click"/>
+                            <Button Content="浏览目录…" Style="{StaticResource SecondaryButton}"
+                                    Click="BrowseVideoFolder_Click"/>
+                        </StackPanel>
                     </Grid>
                 </Border>
             </TabItem>
