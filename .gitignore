@@ -5,6 +5,7 @@
 ## 构建输出
 [Bb]in/
 [Oo]bj/
+FodyWeavers.xsd
 [Dd]ebug/
 [Rr]elease/
 x64/

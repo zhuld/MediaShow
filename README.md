@@ -91,7 +91,10 @@ http://<运行 MediaShow 的电脑 IP>:8000/
 > 该服务不带身份验证，仅应部署在可信的局域网内；如不需要请将 `WebPort` 设为 `0` 关闭。
 
 ### 构建说明
-项目使用 `Microsoft.NET.Sdk.WindowsDesktop` SDK 目标 .NET Framework 4.7.2。
+项目使用 `Microsoft.NET.Sdk.WindowsDesktop` SDK 目标 .NET Framework 4.7.2。执行 `dotnet build MediaShow.sln -c Release` 后，第三方托管 DLL 会由 Costura.Fody 嵌入 `MediaShow.exe`，应用程序图标和托盘图标也会嵌入 EXE，构建后会从输出目录移除这些 DLL，发布时只需分发 `MediaShow.exe`。
+
+目标电脑仍需安装 .NET Framework 4.7.2 或更高版本；该运行时和 Windows 系统 DLL 不会打包进 EXE。程序首次启动时会在 EXE 所在目录生成可编辑的 `config.json`。
+
 如需添加自定义图标，请将 .ico 文件添加到 `Resources` 文件夹并在 XAML 中引用。
 
 ### 版本

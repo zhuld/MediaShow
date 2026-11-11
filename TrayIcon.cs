@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Windows.Forms;
@@ -60,17 +61,20 @@ namespace MediaShow
 
             try
             {
-                // 使用 server.ico 作为托盘图标 - 从应用程序目录加载
-                var exeDir = System.IO.Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!;
-                var trayIconPath = System.IO.Path.Combine(exeDir, "server.ico");
-                if (System.IO.File.Exists(trayIconPath))
+                using (var iconStream = Assembly.GetExecutingAssembly()
+                    .GetManifestResourceStream("MediaShow.Resources.server.ico"))
                 {
-                    _trayIcon.Icon = new System.Drawing.Icon(trayIconPath);
-                }
-                else
-                {
-                    // 文件不存在，使用默认行为（保持 null 图标）
-                    LoggerService.Warn($"Tray icon file not found: {trayIconPath}");
+                    if (iconStream == null)
+                    {
+                        LoggerService.Warn("Embedded tray icon resource not found: MediaShow.Resources.server.ico");
+                    }
+                    else
+                    {
+                        using (var icon = new System.Drawing.Icon(iconStream))
+                        {
+                            _trayIcon.Icon = (System.Drawing.Icon)icon.Clone();
+                        }
+                    }
                 }
             }
             catch (Exception ex)

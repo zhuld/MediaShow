@@ -43,7 +43,8 @@ namespace MediaShow
 
             LoggerService.Info("主窗口构造开始...");
 
-            _configService = new ConfigService("config.json");
+            _configService = new ConfigService(
+                System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "config.json"));
             _config = _configService.Load();
 
             LoggerService.Info($"配置加载完成 - WindowWidth: {_config.WindowWidth}, WindowHeight: {_config.WindowHeight}");

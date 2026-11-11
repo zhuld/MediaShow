@@ -10,16 +10,24 @@
     <RootNamespace>MediaShow</RootNamespace>
     <PlatformTarget>x64</PlatformTarget>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
-    <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
+    <AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>
+    <GenerateBindingRedirectsOutputType>false</GenerateBindingRedirectsOutputType>
     <UserSecretsId>bfa93ba0-237c-4adf-baa3-ef5f5151e390</UserSecretsId>
     <Icon>Resources\icon.ico</Icon>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+  </PropertyGroup>
+
   <ItemGroup>
-    <None Update="config.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
+    <EmbeddedResource Include="Resources\icon.ico">
+      <LogicalName>MediaShow.Resources.icon.ico</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Resources\server.ico">
+      <LogicalName>MediaShow.Resources.server.ico</LogicalName>
+    </EmbeddedResource>
     <EmbeddedResource Include="Web\WebPanel.html">
       <LogicalName>MediaShow.Web.WebPanel.html</LogicalName>
     </EmbeddedResource>
@@ -28,11 +36,26 @@
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="AForge.Video.DirectShow" Version="2.2.5" />
+    <PackageReference Include="Fody" Version="6.8.2">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Costura.Fody" Version="5.7.0">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <Reference Include="System.Windows.Forms" />
   </ItemGroup>
+
+  <Target Name="RemoveBundledFiles" AfterTargets="Build">
+    <ItemGroup>
+      <_BundledAssembly Include="$(TargetDir)*.dll" />
+    </ItemGroup>
+    <Delete Files="@(_BundledAssembly)" />
+    <Delete Files="$(TargetPath).config" />
+  </Target>
 
 </Project>
