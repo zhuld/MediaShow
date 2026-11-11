@@ -270,10 +270,10 @@ namespace MediaShow
                 RestartWebSettingsService();
             }
 
-            if (WindowState == WindowState.Minimized)
+            if (!IsVisible || WindowState == WindowState.Minimized)
             {
-                // Desktop 模式（窗口最小化）下不改动窗口状态，尺寸与布局在恢复显示时再应用
-                LoggerService.Info("窗口当前处于最小化（Desktop）状态，尺寸与布局将在恢复显示时应用");
+                // Desktop 模式下保持窗口隐藏，尺寸与布局在恢复显示时再应用
+                LoggerService.Info("窗口当前处于隐藏（Desktop）状态，尺寸与布局将在恢复显示时应用");
             }
             else
             {
@@ -427,7 +427,7 @@ namespace MediaShow
                 PixelHeight = (int)Math.Round(height * dpi.DpiScaleY),
                 DpiScaleX = Math.Round(dpi.DpiScaleX, 2),
                 DpiScaleY = Math.Round(dpi.DpiScaleY, 2),
-                IsMinimized = WindowState == WindowState.Minimized,
+                IsMinimized = !IsVisible || WindowState == WindowState.Minimized,
                 CurrentMode = _currentModeName
             };
         }
@@ -658,14 +658,15 @@ namespace MediaShow
         }
 
         /// <summary>
-        /// 内置 Desktop 模式：最小化窗口，只显示桌面（保留当前视图，恢复窗口时可直接显示）
+        /// 内置 Desktop 模式：隐藏窗口，只显示桌面（保留当前视图，恢复窗口时可直接显示）
         /// </summary>
         private void ApplyDesktopMode()
         {
             _currentModeName = DesktopModeName;
-            WindowState = WindowState.Minimized;
+            Hide();
+            WindowState = WindowState.Normal;
             ShowModeStatus(DesktopModeName);
-            LoggerService.Info("切换到 Desktop 模式：最小化到桌面");
+            LoggerService.Info("切换到 Desktop 模式：隐藏窗口以显示桌面");
         }
 
         private void ClearCameraViews()
@@ -682,14 +683,14 @@ namespace MediaShow
         {
             var modeName = requestedMode ?? _config.DefaultMode;
 
-            // 内置模式 Desktop：直接最小化，无需先恢复窗口
+            // 内置模式 Desktop：直接隐藏，无需先恢复窗口
             if (string.Equals(modeName, DesktopModeName, StringComparison.OrdinalIgnoreCase))
             {
                 ApplyDesktopMode();
                 return;
             }
 
-            // 从 Desktop 模式（最小化）切回任何显示模式时，先把窗口恢复到正常状态
+            // 从 Desktop 模式（隐藏）切回任何显示模式时，先把窗口恢复到正常状态
             EnsureWindowVisible();
 
             // 内置模式 Blank：清空所有摄像头画面，只显示黑色背景

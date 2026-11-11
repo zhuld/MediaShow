@@ -61,25 +61,12 @@ namespace MediaShow
 
             try
             {
-                using (var iconStream = Assembly.GetExecutingAssembly()
-                    .GetManifestResourceStream("MediaShow.Resources.server.ico"))
-                {
-                    if (iconStream == null)
-                    {
-                        LoggerService.Warn("Embedded tray icon resource not found: MediaShow.Resources.server.ico");
-                    }
-                    else
-                    {
-                        using (var icon = new System.Drawing.Icon(iconStream))
-                        {
-                            _trayIcon.Icon = (System.Drawing.Icon)icon.Clone();
-                        }
-                    }
-                }
+                _trayIcon.Icon = LoadEmbeddedIcon("MediaShow.Resources.server.ico");
             }
             catch (Exception ex)
             {
-                LoggerService.Error($"Failed to load tray icon: {ex.Message}");
+                LoggerService.Error("Failed to load embedded application icon for tray", ex);
+                _trayIcon.Icon = (System.Drawing.Icon)System.Drawing.SystemIcons.Application.Clone();
             }
 
             _trayIcon.DoubleClick += (s, e) => RestoreRequested?.Invoke();
@@ -87,6 +74,23 @@ namespace MediaShow
             // 先构建菜单再显示，确保菜单就绪后再出现图标
             RebuildMenu();
             _trayIcon.Visible = true;
+            LoggerService.Info($"托盘图标已显示，图标已设置：{_trayIcon.Icon != null}");
+        }
+
+        private static System.Drawing.Icon LoadEmbeddedIcon(string resourceName)
+        {
+            using (var iconStream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName))
+            {
+                if (iconStream == null)
+                {
+                    throw new InvalidOperationException($"Embedded icon resource not found: {resourceName}");
+                }
+
+                using (var icon = new System.Drawing.Icon(iconStream))
+                {
+                    return (System.Drawing.Icon)icon.Clone();
+                }
+            }
         }
 
         /// <summary>

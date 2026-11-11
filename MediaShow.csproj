@@ -13,7 +13,7 @@
     <AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>
     <GenerateBindingRedirectsOutputType>false</GenerateBindingRedirectsOutputType>
     <UserSecretsId>bfa93ba0-237c-4adf-baa3-ef5f5151e390</UserSecretsId>
-    <Icon>Resources\icon.ico</Icon>
+    <Icon>Resources\server.ico</Icon>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
@@ -22,9 +22,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Resources\icon.ico">
-      <LogicalName>MediaShow.Resources.icon.ico</LogicalName>
-    </EmbeddedResource>
     <EmbeddedResource Include="Resources\server.ico">
       <LogicalName>MediaShow.Resources.server.ico</LogicalName>
     </EmbeddedResource>

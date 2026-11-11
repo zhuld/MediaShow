@@ -350,7 +350,7 @@ namespace MediaShow
             var modeText = string.IsNullOrWhiteSpace(status.CurrentMode) ? string.Empty : $"，模式 {status.CurrentMode}";
 
             WindowStatusText.Text = status.IsMinimized
-                ? $"当前窗口：已最小化（Desktop），恢复后尺寸 {status.PixelWidth} × {status.PixelHeight} 像素（{dipText}，缩放 {scalePercent}%{modeText}）"
+                ? $"当前窗口：已隐藏/最小化（Desktop），恢复后尺寸 {status.PixelWidth} × {status.PixelHeight} 像素（{dipText}，缩放 {scalePercent}%{modeText}）"
                 : $"当前窗口：{status.PixelWidth} × {status.PixelHeight} 像素（{dipText}，缩放 {scalePercent}%{modeText}）";
         }
 
