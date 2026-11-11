@@ -83,12 +83,10 @@ dotnet build .\MediaShow.sln -c Release
 | `ShowModeStatusBar` | 是否在模式切换后短暂显示窗口底部的模式状态栏；默认 `true` |
 | `CameraSources` | 本机摄像头清单，包含 ID、名称、索引和分辨率 |
 | `VideoSources` | 视频源清单，每项包含 `Id`、`Name`、`FolderPath`、`Extensions`、`Loop`、`Shuffle` |
-| `ImageSources` | 图片源清单，每项包含 `Id`、`Name`、`FolderPath`、`Extensions`、`Loop`、`Shuffle` |
+| `ImageSources` | 图片源清单，每项包含 `Id`、`Name`、`FolderPath`、`Extensions`、`Transition`、`Loop`、`Shuffle` |
 | `Modes` | 布局列表；每个布局包含名称 `Mode` 和视图数组 `Views` |
 | `Views[].SourceType` | 视图来源类型：`Camera`（默认）、`Video` 或 `Image` |
-| `Views[].CameraId` | 视图关联的摄像头 ID（`SourceType` 为 `Camera` 时使用） |
-| `Views[].VideoId` | 视图关联的视频源 ID（`SourceType` 为 `Video` 时使用） |
-| `Views[].ImageId` | 视图关联的图片源 ID（`SourceType` 为 `Image` 时使用） |
+| `Views[].SourceId` | 视图关联的来源 ID，按 `SourceType` 解释：摄像头 ID、视频源 ID 或图片源 ID |
 | `Views[].W`、`Views[].H` | 视图宽高，单位为物理像素，必须大于 `0` |
 | `Views[].Stretch` | 画面拉伸方式：留空为自动（摄像头填充、视频与图片等比适应），可选 `Fill`、`Uniform`、`UniformToFill`、`None` |
 | `Views[].Volume` | 视图音量，`0`～`100` 的百分比，`0` 表示静音；仅对视频视图生效，默认 `100`。图片视图复用该值作为翻页间隔（秒，`1`～`100`），不对图片生效为音量 |
@@ -130,6 +128,7 @@ dotnet build .\MediaShow.sln -c Release
       "Name": "宣传图",
       "FolderPath": "D:\\Pictures\\Show",
       "Extensions": ".jpg;.png",
+      "Transition": "Fade",
       "Loop": true,
       "Shuffle": false
     }
@@ -140,7 +139,7 @@ dotnet build .\MediaShow.sln -c Release
       "Views": [
         {
           "SourceType": "Camera",
-          "CameraId": "cam_0",
+          "SourceId": "cam_0",
           "W": 1280,
           "H": 720
         }
@@ -151,13 +150,13 @@ dotnet build .\MediaShow.sln -c Release
       "Views": [
         {
           "SourceType": "Camera",
-          "CameraId": "cam_0",
+          "SourceId": "cam_0",
           "W": 640,
           "H": 480
         },
         {
           "SourceType": "Video",
-          "VideoId": "vid_1",
+          "SourceId": "vid_1",
           "W": 640,
           "H": 480,
           "Stretch": "Uniform",
@@ -170,7 +169,7 @@ dotnet build .\MediaShow.sln -c Release
       "Views": [
         {
           "SourceType": "Image",
-          "ImageId": "img_1",
+          "SourceId": "img_1",
           "W": 1280,
           "H": 720,
           "Stretch": "Uniform",
@@ -203,6 +202,7 @@ dotnet build .\MediaShow.sln -c Release
 
 - 图片源指向一个目录，程序会递归扫描其子文件夹，按 `Extensions` 中配置的扩展名（分号、逗号或空格分隔，如 `.jpg;.png`）收集文件。
 - 翻页间隔由视图的 `Volume` 值决定（秒，`1`～`100`，默认 `10`），在设置窗口/网页的「音量/间隔」列设置；图片视图不使用音量。
+- 切换特效在图片源中设置（`Transition`），可选 `Fade`（淡入淡出，默认）、`Slide`（横向滑动）、`SlideUp`（纵向滑动）、`Zoom`（缩放）、`Rotate`（旋转），时长约 0.45 秒。
 - `Loop` 为 `true` 时最后一张之后从第一张继续，`Shuffle` 为 `true` 时随机顺序轮播。
 - 图片在后台线程解码，读取完成后立即释放文件句柄，因此轮播期间可以替换或删除图片文件；下次轮播到该文件时才会重新读取。
 - 使用 WPF 内置的图片解码（WIC），jpg / png / bmp / gif 等常见格式无需额外解码器；GIF 只显示第一帧，不播放动画。

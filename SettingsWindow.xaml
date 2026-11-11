@@ -143,6 +143,29 @@
             <Setter Property="SelectionMode" Value="Single"/>
             <Setter Property="SelectionUnit" Value="FullRow"/>
         </Style>
+
+        <!-- 默认选中高亮为深色，单元格内的滑块数值会看不清，改为浅色高亮 + 深色文字 -->
+        <Style TargetType="DataGridRow">
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#E8F0FE"/>
+                    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style TargetType="DataGridCell">
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#E8F0FE"/>
+                    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                </Trigger>
+                <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                    <Setter Property="Background" Value="#E8F0FE"/>
+                    <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
     </Window.Resources>
 
     <Grid>
@@ -309,29 +332,12 @@
                                     <DataGridTemplateColumn Header="来源" Width="*">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
-                                                <Grid>
-                                                    <ComboBox ItemsSource="{Binding CameraOptions}"
-                                                              DisplayMemberPath="Name"
-                                                              SelectedValuePath="Id"
-                                                              SelectedValue="{Binding CameraId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                              Visibility="{Binding IsCamera, Converter={StaticResource BoolToVisibility}}"
-                                                              Padding="6,3"
-                                                              VerticalContentAlignment="Center"/>
-                                                    <ComboBox ItemsSource="{Binding VideoOptions}"
-                                                              DisplayMemberPath="Name"
-                                                              SelectedValuePath="Id"
-                                                              SelectedValue="{Binding VideoId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                              Visibility="{Binding IsVideo, Converter={StaticResource BoolToVisibility}}"
-                                                              Padding="6,3"
-                                                              VerticalContentAlignment="Center"/>
-                                                    <ComboBox ItemsSource="{Binding ImageOptions}"
-                                                              DisplayMemberPath="Name"
-                                                              SelectedValuePath="Id"
-                                                              SelectedValue="{Binding ImageId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                              Visibility="{Binding IsImage, Converter={StaticResource BoolToVisibility}}"
-                                                              Padding="6,3"
-                                                              VerticalContentAlignment="Center"/>
-                                                </Grid>
+                                                <ComboBox ItemsSource="{Binding SourceOptions}"
+                                                          DisplayMemberPath="Name"
+                                                          SelectedValuePath="Id"
+                                                          SelectedValue="{Binding SourceId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                          Padding="6,3"
+                                                          VerticalContentAlignment="Center"/>
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
@@ -351,17 +357,17 @@
                                                         Binding="{Binding W, UpdateSourceTrigger=PropertyChanged}"/>
                                     <DataGridTextColumn Header="高度 (H)" Width="68"
                                                         Binding="{Binding H, UpdateSourceTrigger=PropertyChanged}"/>
-                                    <DataGridTemplateColumn Header="音量/间隔" Width="132">
+                                    <DataGridTemplateColumn Header="音量/间隔" Width="150">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="*"/>
-                                                        <ColumnDefinition Width="32"/>
+                                                        <ColumnDefinition Width="40"/>
                                                     </Grid.ColumnDefinitions>
                                                     <Slider Grid.Column="0"
                                                             Maximum="100"
-                                                            TickFrequency="5"
+                                                            TickFrequency="1"
                                                             IsSnapToTickEnabled="True"
                                                             VerticalAlignment="Center"
                                                             Margin="0,0,6,0"
@@ -382,7 +388,7 @@
                                                                Text="{Binding Volume, StringFormat={}{0:0}}"
                                                                VerticalAlignment="Center"
                                                                HorizontalAlignment="Right"
-                                                               Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                               FontWeight="SemiBold"/>
                                                 </Grid>
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
@@ -470,13 +476,25 @@
                         <TextBlock Grid.Row="0"
                                    Style="{StaticResource FieldHint}"
                                    Margin="0,0,0,10"
-                                   Text="每个图片源指向一个本地目录，程序会递归扫描其中的图片文件，按视图设置的间隔循环或随机轮播（支持 jpg/png/bmp/gif 等系统可解码的格式，GIF 仅显示第一帧）。翻页间隔在“布局模式”的音量/间隔列按视图设置；图片在“布局模式”中通过视图的类型“图片”选用。"/>
+                                   Text="每个图片源指向一个本地目录，程序会递归扫描其中的图片文件，按视图设置的间隔循环或随机轮播（支持 jpg/png/bmp/gif 等系统可解码的格式，GIF 仅显示第一帧）。切换特效按图片源设置；翻页间隔在“布局模式”的音量/间隔列按视图设置。"/>
                         <DataGrid x:Name="ImageGrid" Grid.Row="1">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="80" IsReadOnly="True"/>
                                 <DataGridTextColumn Header="名称" Binding="{Binding Name}" Width="*"/>
                                 <DataGridTextColumn Header="目录" Binding="{Binding FolderPath}" Width="2*"/>
-                                <DataGridTextColumn Header="扩展名" Binding="{Binding Extensions}" Width="150"/>
+                                <DataGridTextColumn Header="扩展名" Binding="{Binding Extensions}" Width="130"/>
+                                <DataGridTemplateColumn Header="特效" Width="110">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <ComboBox ItemsSource="{Binding ImageTransitionOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                      DisplayMemberPath="Name"
+                                                      SelectedValuePath="Id"
+                                                      SelectedValue="{Binding Transition, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                      Padding="6,3"
+                                                      VerticalContentAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
                                 <DataGridCheckBoxColumn Header="循环" Binding="{Binding Loop}" Width="56"/>
                                 <DataGridCheckBoxColumn Header="随机" Binding="{Binding Shuffle}" Width="56"/>
                             </DataGrid.Columns>

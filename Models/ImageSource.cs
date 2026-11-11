@@ -11,5 +11,10 @@ namespace MediaShow.Models
         public string Extensions { get; set; } = ".jpg;.jpeg;.png;.bmp;.gif";
         public bool Loop { get; set; } = true;
         public bool Shuffle { get; set; }
+
+        /// <summary>
+        /// 切换特效：Fade（淡入淡出，默认）、Slide（横向滑动）、SlideUp（纵向滑动）、Zoom（缩放）、Rotate（旋转）
+        /// </summary>
+        public string Transition { get; set; } = "Fade";
     }
 }

@@ -26,6 +26,12 @@ namespace MediaShow.Services
 
         public const string DefaultImageExtensions = ".jpg;.jpeg;.png;.bmp;.gif";
 
+        /// <summary>图片切换特效（对应 <see cref="Models.ImageSource.Transition"/>）：默认淡入淡出</summary>
+        public const string DefaultImageTransition = "Fade";
+
+        /// <summary>可选的图片切换特效，按界面展示顺序排列</summary>
+        public static readonly IReadOnlyList<string> ImageTransitions = new[] { "Fade", "Slide", "SlideUp", "Zoom", "Rotate" };
+
         /// <summary>图片翻页间隔（秒）的取值范围，由视图的 Volume 值表示</summary>
         public const int MinImageIntervalSeconds = 1;
         public const int MaxImageIntervalSeconds = 100;
@@ -77,6 +83,22 @@ namespace MediaShow.Services
         public static bool IsImageView(ViewItem? view)
         {
             return view != null && string.Equals(view.SourceType, ImageSourceType, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>规范化图片切换特效：空或无法识别时返回默认特效</summary>
+        public static string NormalizeImageTransition(string? value)
+        {
+            var text = (value ?? string.Empty).Trim();
+
+            foreach (var transition in ImageTransitions)
+            {
+                if (string.Equals(text, transition, StringComparison.OrdinalIgnoreCase))
+                {
+                    return transition;
+                }
+            }
+
+            return DefaultImageTransition;
         }
 
         /// <summary>规范化视图来源类型：无法识别时按摄像头处理</summary>
@@ -145,6 +167,8 @@ namespace MediaShow.Services
                 {
                     image.Extensions = DefaultImageExtensions;
                 }
+
+                image.Transition = NormalizeImageTransition(image.Transition);
             }
 
             foreach (var mode in config.Modes)
@@ -158,9 +182,7 @@ namespace MediaShow.Services
                 {
                     if (view == null) continue;
 
-                    view.CameraId = (view.CameraId ?? string.Empty).Trim();
-                    view.VideoId = (view.VideoId ?? string.Empty).Trim();
-                    view.ImageId = (view.ImageId ?? string.Empty).Trim();
+                    view.SourceId = (view.SourceId ?? string.Empty).Trim();
                     view.SourceType = NormalizeSourceType(view.SourceType);
                     view.Stretch = NormalizeStretch(view.Stretch);
 
@@ -216,6 +238,7 @@ namespace MediaShow.Services
                         Name = image.Name,
                         FolderPath = image.FolderPath,
                         Extensions = image.Extensions,
+                        Transition = image.Transition,
                         Loop = image.Loop,
                         Shuffle = image.Shuffle
                     })
@@ -228,9 +251,7 @@ namespace MediaShow.Services
                             .Select(view => new ViewItem
                             {
                                 SourceType = view.SourceType,
-                                CameraId = view.CameraId,
-                                VideoId = view.VideoId,
-                                ImageId = view.ImageId,
+                                SourceId = view.SourceId,
                                 W = view.W,
                                 H = view.H,
                                 Stretch = view.Stretch,
@@ -399,18 +420,18 @@ namespace MediaShow.Services
                         }
 
                         if (IsVideoView(view)
-                            && !string.IsNullOrWhiteSpace(view.VideoId)
-                            && !videoIds.Contains(view.VideoId.Trim()))
+                            && !string.IsNullOrWhiteSpace(view.SourceId)
+                            && !videoIds.Contains(view.SourceId.Trim()))
                         {
-                            errors.Add($"模式“{modeName}”的视图引用了不存在的视频源：{view.VideoId}");
+                            errors.Add($"模式“{modeName}”的视图引用了不存在的视频源：{view.SourceId}");
                             break;
                         }
 
                         if (IsImageView(view)
-                            && !string.IsNullOrWhiteSpace(view.ImageId)
-                            && !imageIds.Contains(view.ImageId.Trim()))
+                            && !string.IsNullOrWhiteSpace(view.SourceId)
+                            && !imageIds.Contains(view.SourceId.Trim()))
                         {
-                            errors.Add($"模式“{modeName}”的视图引用了不存在的图片源：{view.ImageId}");
+                            errors.Add($"模式“{modeName}”的视图引用了不存在的图片源：{view.SourceId}");
                             break;
                         }
                     }

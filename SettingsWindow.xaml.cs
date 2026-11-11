@@ -33,6 +33,16 @@ namespace MediaShow
         /// <summary>用户确认后生成的新配置；取消时为 null</summary>
         public AppConfig? ResultConfig { get; private set; }
 
+        /// <summary>图片源“特效”列的可选项</summary>
+        public IReadOnlyList<SourceOption> ImageTransitionOptions { get; } = new List<SourceOption>
+        {
+            new() { Id = "Fade", Name = "淡入淡出" },
+            new() { Id = "Slide", Name = "横向滑动" },
+            new() { Id = "SlideUp", Name = "纵向滑动" },
+            new() { Id = "Zoom", Name = "缩放" },
+            new() { Id = "Rotate", Name = "旋转" }
+        };
+
         /// <summary>配置文件完整路径（仅用于展示与定位）</summary>
         public string ConfigPath { get; }
 
@@ -101,6 +111,7 @@ namespace MediaShow
                     Name = image.Name,
                     FolderPath = image.FolderPath,
                     Extensions = image.Extensions,
+                    Transition = image.Transition,
                     Loop = image.Loop,
                     Shuffle = image.Shuffle
                 });
@@ -207,7 +218,7 @@ namespace MediaShow
             var mode = new ModeEditor { Name = GenerateUniqueModeName() };
             if (_cameras.Count > 0)
             {
-                mode.Views.Add(new ViewEditor { CameraId = _cameras[0].Id });
+                mode.Views.Add(new ViewEditor { SourceId = _cameras[0].Id });
             }
 
             AddModeInternal(mode, select: true);
@@ -247,7 +258,7 @@ namespace MediaShow
             }
 
             var cameraId = _cameras.Count > mode.Views.Count ? _cameras[mode.Views.Count].Id : string.Empty;
-            var view = new ViewEditor { CameraId = cameraId };
+            var view = new ViewEditor { SourceId = cameraId };
             AttachSourceOptions(view);
             mode.Views.Add(view);
         }
@@ -540,9 +551,7 @@ namespace MediaShow
                     views.Add(new ViewItem
                     {
                         SourceType = ConfigValidator.NormalizeSourceType(view.SourceType),
-                        CameraId = (view.CameraId ?? string.Empty).Trim(),
-                        VideoId = (view.VideoId ?? string.Empty).Trim(),
-                        ImageId = (view.ImageId ?? string.Empty).Trim(),
+                        SourceId = (view.SourceId ?? string.Empty).Trim(),
                         W = viewWidth,
                         H = viewHeight,
                         Stretch = view.Stretch ?? string.Empty,
@@ -594,6 +603,7 @@ namespace MediaShow
                         Extensions = string.IsNullOrWhiteSpace(image.Extensions)
                             ? ConfigValidator.DefaultImageExtensions
                             : image.Extensions.Trim(),
+                        Transition = ConfigValidator.NormalizeImageTransition(image.Transition),
                         Loop = image.Loop,
                         Shuffle = image.Shuffle
                     })
@@ -680,9 +690,7 @@ namespace MediaShow
                     editor.Views.Add(new ViewEditor
                     {
                         SourceType = ConfigValidator.NormalizeSourceType(view.SourceType),
-                        CameraId = view.CameraId ?? string.Empty,
-                        VideoId = view.VideoId ?? string.Empty,
-                        ImageId = view.ImageId ?? string.Empty,
+                        SourceId = view.SourceId ?? string.Empty,
                         W = view.W.ToString(CultureInfo.InvariantCulture),
                         H = view.H.ToString(CultureInfo.InvariantCulture),
                         Stretch = view.Stretch ?? string.Empty,
@@ -699,9 +707,7 @@ namespace MediaShow
     internal class ViewEditor : ObservableObject
     {
         private string _sourceType = ConfigValidator.CameraSourceType;
-        private string _cameraId = string.Empty;
-        private string _videoId = string.Empty;
-        private string _imageId = string.Empty;
+        private string _sourceId = string.Empty;
         private IReadOnlyList<SourceOption> _cameraOptions = Array.Empty<SourceOption>();
         private IReadOnlyList<SourceOption> _videoOptions = Array.Empty<SourceOption>();
         private IReadOnlyList<SourceOption> _imageOptions = Array.Empty<SourceOption>();
@@ -743,6 +749,7 @@ namespace MediaShow
             {
                 _cameraOptions = value ?? Array.Empty<SourceOption>();
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(SourceOptions));
             }
         }
 
@@ -754,6 +761,7 @@ namespace MediaShow
             {
                 _videoOptions = value ?? Array.Empty<SourceOption>();
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(SourceOptions));
             }
         }
 
@@ -765,8 +773,12 @@ namespace MediaShow
             {
                 _imageOptions = value ?? Array.Empty<SourceOption>();
                 OnPropertyChanged();
+                OnPropertyChanged(nameof(SourceOptions));
             }
         }
+
+        /// <summary>当前类型对应的“来源”候选列表</summary>
+        public IReadOnlyList<SourceOption> SourceOptions => IsVideo ? _videoOptions : IsImage ? _imageOptions : _cameraOptions;
 
         public bool IsImage => string.Equals(_sourceType, ConfigValidator.ImageSourceType, StringComparison.OrdinalIgnoreCase);
 
@@ -785,25 +797,23 @@ namespace MediaShow
                 OnPropertyChanged(nameof(IsVideo));
                 OnPropertyChanged(nameof(IsImage));
                 OnPropertyChanged(nameof(IsCamera));
+                OnPropertyChanged(nameof(SourceOptions));
+
+                // 切换类型后旧的来源 ID 通常不属于新类型，避免指向不存在的来源
+                var options = SourceOptions;
+                if (options.Count > 0 && !string.IsNullOrWhiteSpace(_sourceId)
+                    && !options.Any(option => string.Equals(option.Id, _sourceId, StringComparison.OrdinalIgnoreCase)))
+                {
+                    SourceId = string.Empty;
+                }
             }
         }
 
-        public string CameraId
+        /// <summary>来源 ID：摄像头 / 视频源 / 图片源中与 SourceType 对应的 ID</summary>
+        public string SourceId
         {
-            get => _cameraId;
-            set => Set(ref _cameraId, value ?? string.Empty);
-        }
-
-        public string VideoId
-        {
-            get => _videoId;
-            set => Set(ref _videoId, value ?? string.Empty);
-        }
-
-        public string ImageId
-        {
-            get => _imageId;
-            set => Set(ref _imageId, value ?? string.Empty);
+            get => _sourceId;
+            set => Set(ref _sourceId, value ?? string.Empty);
         }
 
         public string W
@@ -834,7 +844,7 @@ namespace MediaShow
     }
 
     /// <summary>“来源”下拉框选项：摄像头、视频源或图片源</summary>
-    internal class SourceOption
+    public class SourceOption
     {
         public string Id { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;

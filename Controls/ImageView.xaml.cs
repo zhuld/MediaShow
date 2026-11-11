@@ -3,26 +3,32 @@ using System.IO;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using MediaShow.Models;
 using MediaShow.Services;
-using Stretch = System.Windows.Media.Stretch;
+using ImageSource = MediaShow.Models.ImageSource;
 
 namespace MediaShow.Controls
 {
     /// <summary>
-    /// 单个图片源显示控件：按播放列表轮播图片源目录中的图片文件。
+    /// 单个图片源显示控件：按播放列表轮播图片源目录中的图片文件，并按配置执行切换特效。
     /// 图片在后台线程解码为冻结的位图后交给 UI 显示，文件句柄在解码完成后立即释放。
     /// </summary>
     public partial class ImageView : Grid, IDisposable
     {
+        private const int TransitionDurationMilliseconds = 450;
+
         private ImagePlaylistService? _playlist;
         private ImageSource? _imageSource;
         private DispatcherTimer? _timer;
         private string? _currentFile;
         private int _intervalSeconds = 10;
+        private string _transition = ConfigValidator.DefaultImageTransition;
         private int _loadVersion;
+        private int _transitionToken;
         private bool _playing;
         private bool _disposed;
 
@@ -39,6 +45,7 @@ namespace MediaShow.Controls
             _imageSource = imageSource;
             ImageId = imageId ?? string.Empty;
             _intervalSeconds = Math.Max(ConfigValidator.MinImageIntervalSeconds, intervalSeconds);
+            _transition = ConfigValidator.NormalizeImageTransition(imageSource?.Transition);
             SetStretch(stretch);
         }
 
@@ -59,6 +66,7 @@ namespace MediaShow.Controls
         public void SetStretch(Stretch stretch)
         {
             PART_Image.Stretch = stretch;
+            PART_Previous.Stretch = stretch;
         }
 
         /// <summary>开始轮播；控件尚未加载完成时会等到加载后再开始</summary>
@@ -81,6 +89,7 @@ namespace MediaShow.Controls
         {
             _playing = false;
             _loadVersion++;
+            _transitionToken++;
 
             if (_timer != null)
             {
@@ -88,7 +97,11 @@ namespace MediaShow.Controls
             }
 
             _currentFile = null;
+            ResetImage(PART_Image);
+            ResetImage(PART_Previous);
             PART_Image.Source = null;
+            PART_Previous.Source = null;
+            PART_Previous.Opacity = 0;
         }
 
         private void ImageView_Loaded(object sender, RoutedEventArgs e)
@@ -188,9 +201,153 @@ namespace MediaShow.Controls
                 return;
             }
 
-            PART_Image.Source = task.Result;
+            DisplayImage(task.Result);
             LoggerService.Info($"图片视图 {ImageId} 显示图片：{Path.GetFileName(_currentFile ?? string.Empty)}");
             ScheduleNextImage();
+        }
+
+        /// <summary>显示新图片并执行切换特效：旧图片保留在底层，动画结束后再释放</summary>
+        private void DisplayImage(BitmapSource bitmap)
+        {
+            var previous = PART_Image.Source;
+
+            ResetImage(PART_Image);
+            PART_Image.Source = bitmap;
+            PART_Image.Opacity = 1;
+
+            if (previous != null && !ReferenceEquals(previous, bitmap))
+            {
+                ResetImage(PART_Previous);
+                PART_Previous.Source = previous;
+                PART_Previous.Opacity = 1;
+            }
+            else
+            {
+                PART_Previous.Source = null;
+                PART_Previous.Opacity = 0;
+            }
+
+            StartTransition();
+        }
+
+        /// <summary>清除图层上的动画与变换，避免上一张图片的特效残留</summary>
+        private static void ResetImage(UIElement element)
+        {
+            element.BeginAnimation(UIElement.OpacityProperty, null);
+            element.RenderTransform = Transform.Identity;
+            element.RenderTransformOrigin = new Point(0.5, 0.5);
+            element.Opacity = 1;
+        }
+
+        private void StartTransition()
+        {
+            var token = ++_transitionToken;
+            var duration = TimeSpan.FromMilliseconds(TransitionDurationMilliseconds);
+            var easing = new QuadraticEase { EasingMode = EasingMode.EaseOut };
+
+            switch (_transition)
+            {
+                case "Slide":
+                    AnimateSlide(token, duration, easing, horizontal: true);
+                    break;
+                case "SlideUp":
+                    AnimateSlide(token, duration, easing, horizontal: false);
+                    break;
+                case "Zoom":
+                    AnimateZoom(token, duration, easing);
+                    break;
+                case "Rotate":
+                    AnimateRotate(token, duration, easing);
+                    break;
+                default:
+                    AnimateFade(token, duration, easing);
+                    break;
+            }
+        }
+
+        /// <summary>淡入淡出：新图片从透明淡入，覆盖在旧图片上</summary>
+        private void AnimateFade(int token, TimeSpan duration, IEasingFunction easing)
+        {
+            PART_Image.Opacity = 1;
+            PART_Image.BeginAnimation(
+                UIElement.OpacityProperty,
+                CreateAnimation(0, 1, duration, easing, () => OnTransitionCompleted(token)));
+        }
+
+        /// <summary>滑动：新图片从右侧（或下方）滑入并覆盖旧图片</summary>
+        private void AnimateSlide(int token, TimeSpan duration, IEasingFunction easing, bool horizontal)
+        {
+            var distance = horizontal ? PART_Image.ActualWidth : PART_Image.ActualHeight;
+            if (distance <= 0) distance = horizontal ? ActualWidth : ActualHeight;
+            if (distance <= 0) distance = 1;
+
+            var transform = horizontal ? new TranslateTransform(distance, 0) : new TranslateTransform(0, distance);
+            PART_Image.RenderTransform = transform;
+            PART_Image.Opacity = 1;
+
+            var property = horizontal ? TranslateTransform.XProperty : TranslateTransform.YProperty;
+            transform.BeginAnimation(
+                property,
+                CreateAnimation(distance, 0, duration, easing, () => OnTransitionCompleted(token)));
+        }
+
+        /// <summary>缩放：新图片由小放大并淡入</summary>
+        private void AnimateZoom(int token, TimeSpan duration, IEasingFunction easing)
+        {
+            var scale = new ScaleTransform(0.82, 0.82);
+            PART_Image.RenderTransform = scale;
+            PART_Image.Opacity = 0.4;
+
+            scale.BeginAnimation(ScaleTransform.ScaleXProperty, CreateAnimation(0.82, 1, duration, easing));
+            scale.BeginAnimation(ScaleTransform.ScaleYProperty, CreateAnimation(0.82, 1, duration, easing));
+            PART_Image.BeginAnimation(
+                UIElement.OpacityProperty,
+                CreateAnimation(0.4, 1, duration, easing, () => OnTransitionCompleted(token)));
+        }
+
+        /// <summary>旋转：新图片轻微旋转并淡入</summary>
+        private void AnimateRotate(int token, TimeSpan duration, IEasingFunction easing)
+        {
+            var rotate = new RotateTransform(-12);
+            PART_Image.RenderTransform = rotate;
+            PART_Image.Opacity = 0.3;
+
+            rotate.BeginAnimation(RotateTransform.AngleProperty, CreateAnimation(-12, 0, duration, easing));
+            PART_Image.BeginAnimation(
+                UIElement.OpacityProperty,
+                CreateAnimation(0.3, 1, duration, easing, () => OnTransitionCompleted(token)));
+        }
+
+        private static DoubleAnimation CreateAnimation(
+            double from,
+            double to,
+            TimeSpan duration,
+            IEasingFunction easing,
+            Action? onCompleted = null)
+        {
+            // FillBehavior.Stop 表示动画结束后回到基础值，由 ResetImage 统一清理
+            var animation = new DoubleAnimation(from, to, duration)
+            {
+                EasingFunction = easing,
+                FillBehavior = FillBehavior.Stop
+            };
+
+            if (onCompleted != null)
+            {
+                animation.Completed += (_, _) => onCompleted();
+            }
+
+            return animation;
+        }
+
+        /// <summary>特效结束后释放底层旧图片，避免长时间占用内存</summary>
+        private void OnTransitionCompleted(int token)
+        {
+            if (_disposed || token != _transitionToken) return;
+
+            PART_Previous.Source = null;
+            PART_Previous.Opacity = 0;
+            ResetImage(PART_Image);
         }
 
         private void ScheduleNextImage()

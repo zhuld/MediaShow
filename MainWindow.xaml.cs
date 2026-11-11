@@ -894,8 +894,8 @@ namespace MediaShow
 
         private static string DescribeView(ViewItem item)
         {
-            if (ConfigValidator.IsImageView(item)) return $"图片:{item.ImageId}";
-            return ConfigValidator.IsVideoView(item) ? $"视频:{item.VideoId}" : $"摄像头:{item.CameraId}";
+            if (ConfigValidator.IsImageView(item)) return $"图片:{item.SourceId}";
+            return ConfigValidator.IsVideoView(item) ? $"视频:{item.SourceId}" : $"摄像头:{item.SourceId}";
         }
 
         /// <summary>解析视图的拉伸方式；未配置时按来源使用默认（摄像头填充、视频与图片等比适应）</summary>
@@ -935,10 +935,10 @@ namespace MediaShow
                     return existingImage;
                 }
 
-                var imageSource = FindImageSource(item.ImageId);
+                var imageSource = FindImageSource(item.SourceId);
                 if (imageSource == null)
                 {
-                    LoggerService.Warn($"视图引用的图片源不存在：{item.ImageId}");
+                    LoggerService.Warn($"视图引用的图片源不存在：{item.SourceId}");
                 }
 
                 var imageView = new Controls.ImageView
@@ -946,14 +946,14 @@ namespace MediaShow
                     Width = w,
                     Height = h
                 };
-                imageView.Configure(imageSource, item.ImageId, ConfigValidator.ResolveImageIntervalSeconds(item), ResolveStretch(item));
+                imageView.Configure(imageSource, item.SourceId, ConfigValidator.ResolveImageIntervalSeconds(item), ResolveStretch(item));
                 Canvas.SetLeft(imageView, x);
                 Canvas.SetTop(imageView, y);
                 Canvas.SetZIndex(imageView, zIndex);
 
                 _imageViews[item] = imageView;
                 LayoutCanvas.Children.Add(imageView);
-                LoggerService.Info($"创建图片显示窗口：ImageId={item.ImageId}, X={x}, Y={y}, W={w}, H={h}");
+                LoggerService.Info($"创建图片显示窗口：ImageId={item.SourceId}, X={x}, Y={y}, W={w}, H={h}");
                 imageView.Play();
                 return imageView;
             }
@@ -976,10 +976,10 @@ namespace MediaShow
                     return existingVideo;
                 }
 
-                var videoSource = FindVideoSource(item.VideoId);
+                var videoSource = FindVideoSource(item.SourceId);
                 if (videoSource == null)
                 {
-                    LoggerService.Warn($"视图引用的视频源不存在：{item.VideoId}");
+                    LoggerService.Warn($"视图引用的视频源不存在：{item.SourceId}");
                 }
 
                 var videoView = new Controls.VideoView
@@ -987,14 +987,14 @@ namespace MediaShow
                     Width = w,
                     Height = h
                 };
-                videoView.Configure(videoSource, item.VideoId, item.Volume, ResolveStretch(item));
+                videoView.Configure(videoSource, item.SourceId, item.Volume, ResolveStretch(item));
                 Canvas.SetLeft(videoView, x);
                 Canvas.SetTop(videoView, y);
                 Canvas.SetZIndex(videoView, zIndex);
 
                 _videoViews[item] = videoView;
                 LayoutCanvas.Children.Add(videoView);
-                LoggerService.Info($"创建视频显示窗口：VideoId={item.VideoId}, X={x}, Y={y}, W={w}, H={h}");
+                LoggerService.Info($"创建视频显示窗口：VideoId={item.SourceId}, X={x}, Y={y}, W={w}, H={h}");
                 videoView.Play();
                 return videoView;
             }
@@ -1017,7 +1017,7 @@ namespace MediaShow
 
             var camView = new Controls.CameraView
             {
-                CameraId = item.CameraId,
+                CameraId = item.SourceId,
                 Width = w,
                 Height = h
             };
@@ -1028,7 +1028,7 @@ namespace MediaShow
 
             _cameraViews[item] = camView;
             LayoutCanvas.Children.Add(camView);
-            LoggerService.Info($"创建摄像头显示窗口：CameraId={item.CameraId}, X={x}, Y={y}, W={w}, H={h}");
+            LoggerService.Info($"创建摄像头显示窗口：CameraId={item.SourceId}, X={x}, Y={y}, W={w}, H={h}");
             return camView;
         }
 
@@ -1200,15 +1200,15 @@ namespace MediaShow
                 for (var i = 0; i < group.Views.Count; i++)
                 {
                     var view = group.Views[i];
-                    // 视频视图不参与摄像头关联修正
-                    if (ConfigValidator.IsVideoView(view))
+                    // 视频 / 图片视图不参与摄像头关联修正
+                    if (ConfigValidator.IsVideoView(view) || ConfigValidator.IsImageView(view))
                     {
                         continue;
                     }
 
-                    if (string.IsNullOrWhiteSpace(view.CameraId) || !cameraIds.Contains(view.CameraId))
+                    if (string.IsNullOrWhiteSpace(view.SourceId) || !cameraIds.Contains(view.SourceId))
                     {
-                        view.CameraId = i < cameras.Count ? cameras[i].Id : string.Empty;
+                        view.SourceId = i < cameras.Count ? cameras[i].Id : string.Empty;
                     }
                 }
             }

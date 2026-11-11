@@ -636,7 +636,7 @@
 
     .image-row {
         display: grid;
-        grid-template-columns: 92px minmax(0, 1fr) minmax(0, 1.7fr) 150px 198px 36px;
+        grid-template-columns: 92px minmax(0, 1fr) minmax(0, 1.7fr) 130px 120px 198px 36px;
         gap: 10px;
         align-items: end;
         padding: 12px;
@@ -947,13 +947,13 @@
             <span class="panel-num">06</span>
             <div>
                 <h2 class="panel-title">图片源</h2>
-                <p class="panel-desc">每个图片源指向一个本地目录，递归扫描其中的图片文件并按设定间隔轮播；无法读取的文件会自动跳过。</p>
+                <p class="panel-desc">每个图片源指向一个本地目录，递归扫描其中的图片文件并按设定间隔轮播，可配置切换特效；无法读取的文件会自动跳过。</p>
             </div>
         </div>
         <div class="image-table" id="imageTable"></div>
         <div class="row-foot">
             <button class="btn" id="addImageBtn" type="button">＋ 添加图片源</button>
-            <p class="hint">支持 jpg / png / bmp / gif 等系统可解码的格式（GIF 仅显示第一帧）；翻页间隔在「布局模式」的「音量/间隔」列按视图设置。</p>
+            <p class="hint">支持 jpg / png / bmp / gif 等系统可解码的格式（GIF 仅显示第一帧）；切换特效按图片源设置，翻页间隔在「布局模式」的「音量/间隔」列按视图设置。</p>
         </div>
     </section>
 
@@ -1060,6 +1060,7 @@
                 Name: image.Name || '',
                 FolderPath: image.FolderPath || '',
                 Extensions: image.Extensions || '',
+                Transition: image.Transition || 'Fade',
                 Loop: image.Loop !== false,
                 Shuffle: !!image.Shuffle
             }));
@@ -1069,9 +1070,7 @@
                     SourceType: view.SourceType === 'Video' || view.SourceType === 'Image'
                         ? view.SourceType
                         : 'Camera',
-                    CameraId: view.CameraId || '',
-                    VideoId: view.VideoId || '',
-                    ImageId: view.ImageId || '',
+                    SourceId: view.SourceId || '',
                     W: String(view.W),
                     H: String(view.H),
                     Stretch: view.Stretch || '',
@@ -1230,6 +1229,21 @@
         return options.join('');
     }
 
+    const imageTransitions = [
+        { Id: 'Fade', Name: '淡入淡出' },
+        { Id: 'Slide', Name: '横向滑动' },
+        { Id: 'SlideUp', Name: '纵向滑动' },
+        { Id: 'Zoom', Name: '缩放' },
+        { Id: 'Rotate', Name: '旋转' }
+    ];
+
+    function imageTransitionOptions(selectedId) {
+        const current = selectedId || 'Fade';
+        return imageTransitions.map(item =>
+            `<option value="${item.Id}" ${item.Id === current ? 'selected' : ''}>${item.Name}</option>`
+        ).join('');
+    }
+
     function stretchOptions(selectedValue) {
         const modes = [
             { Id: '', Name: '自动' },
@@ -1270,8 +1284,8 @@
             const isImage = view.SourceType === 'Image';
             const sourceLabel = isVideo ? '视频源' : (isImage ? '图片源' : '摄像头');
             const sourceOptions = isVideo
-                ? videoOptions(view.VideoId)
-                : (isImage ? imageOptions(view.ImageId) : cameraOptions(view.CameraId));
+                ? videoOptions(view.SourceId)
+                : (isImage ? imageOptions(view.SourceId) : cameraOptions(view.SourceId));
             return `
             <div class="view-row" data-index="${index}">
                 <div class="type-cell">
@@ -1315,19 +1329,23 @@
             const index = Number(row.dataset.index);
             row.querySelector('[data-role="type"]').addEventListener('change', event => {
                 const type = event.target.value;
-                mode.Views[index].SourceType = type === 'Video' || type === 'Image' ? type : 'Camera';
+                const view = mode.Views[index];
+                view.SourceType = type === 'Video' || type === 'Image' ? type : 'Camera';
+
+                // 类型切换后旧的来源 ID 通常不属于新类型，避免指向不存在的来源
+                const options = view.SourceType === 'Video'
+                    ? state.videos
+                    : (view.SourceType === 'Image' ? state.images : state.cameras);
+                const sourceId = (view.SourceId || '').toLowerCase();
+                if (sourceId && !options.some(item => (item.Id || '').toLowerCase() === sourceId)) {
+                    view.SourceId = '';
+                }
+
                 renderModeEditor();
                 markDirty(true);
             });
             row.querySelector('[data-role="source"]').addEventListener('change', event => {
-                const view = mode.Views[index];
-                if (view.SourceType === 'Video') {
-                    view.VideoId = event.target.value;
-                } else if (view.SourceType === 'Image') {
-                    view.ImageId = event.target.value;
-                } else {
-                    view.CameraId = event.target.value;
-                }
+                mode.Views[index].SourceId = event.target.value;
                 markDirty(true);
             });
             row.querySelector('[data-role="stretch"]').addEventListener('change', event => {
@@ -1503,6 +1521,10 @@
                     <span class="sub-label">扩展名</span>
                     <input type="text" data-role="extensions" value="${escapeHtml(image.Extensions)}" autocomplete="off" spellcheck="false" placeholder=".jpg;.png">
                 </div>
+                <div>
+                    <span class="sub-label">切换特效</span>
+                    <select data-role="transition">${imageTransitionOptions(image.Transition)}</select>
+                </div>
                 <div class="checks">
                     <label class="check-option"><input type="checkbox" data-role="loop" ${image.Loop ? 'checked' : ''}>循环</label>
                     <label class="check-option"><input type="checkbox" data-role="shuffle" ${image.Shuffle ? 'checked' : ''}>随机</label>
@@ -1532,6 +1554,10 @@
                 });
             });
 
+            row.querySelector('[data-role="transition"]').addEventListener('change', event => {
+                image.Transition = event.target.value;
+                markDirty(true);
+            });
             row.querySelector('[data-role="loop"]').addEventListener('change', event => {
                 image.Loop = event.target.checked;
                 markDirty(true);
@@ -1559,6 +1585,7 @@
             Name: '图片源 ' + (state.images.length + 1),
             FolderPath: '',
             Extensions: '.jpg;.jpeg;.png;.bmp;.gif',
+            Transition: 'Fade',
             Loop: true,
             Shuffle: false
         });
@@ -1650,6 +1677,7 @@
                 Name: (image.Name || '').trim(),
                 FolderPath: (image.FolderPath || '').trim(),
                 Extensions: (image.Extensions || '').trim(),
+                Transition: image.Transition || 'Fade',
                 Loop: !!image.Loop,
                 Shuffle: !!image.Shuffle
             })),
@@ -1659,9 +1687,7 @@
                     SourceType: view.SourceType === 'Video' || view.SourceType === 'Image'
                         ? view.SourceType
                         : 'Camera',
-                    CameraId: view.SourceType === 'Camera' ? (view.CameraId || '') : '',
-                    VideoId: view.SourceType === 'Video' ? (view.VideoId || '') : '',
-                    ImageId: view.SourceType === 'Image' ? (view.ImageId || '') : '',
+                    SourceId: view.SourceId || '',
                     W: Number(view.W),
                     H: Number(view.H),
                     Stretch: view.Stretch || '',
@@ -1717,7 +1743,7 @@
         const cameraId = state.cameras.length ? state.cameras[0].Id : '';
         state.modes.push({
             Mode: name,
-            Views: [{ SourceType: 'Camera', CameraId: cameraId, VideoId: '', ImageId: '', W: '640', H: '480', Stretch: '', Volume: '100' }]
+            Views: [{ SourceType: 'Camera', SourceId: cameraId, W: '640', H: '480', Stretch: '', Volume: '100' }]
         });
         state.selected = state.modes.length - 1;
         renderAll();
@@ -1739,7 +1765,7 @@
         const cameraId = state.cameras.length > mode.Views.length
             ? state.cameras[mode.Views.length].Id
             : '';
-        mode.Views.push({ SourceType: 'Camera', CameraId: cameraId, VideoId: '', ImageId: '', W: '640', H: '480', Stretch: '', Volume: '100' });
+        mode.Views.push({ SourceType: 'Camera', SourceId: cameraId, W: '640', H: '480', Stretch: '', Volume: '100' });
         renderModeList();
         renderModeEditor();
         markDirty(true);
