@@ -9,7 +9,7 @@
                 "build",
                 "${workspaceFolder}/MediaShow.csproj",
                 "-f",
-                "net472"
+                "net48"
             ],
             "problemMatcher": "$msCompile",
             "group": {

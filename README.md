@@ -16,7 +16,7 @@ MediaShow 是一款运行于 Windows 的 WPF 多媒体显示程序。它使用 D
 ## 运行要求
 
 - Windows
-- .NET Framework 4.7.2 或更高版本
+- .NET Framework 4.8 或更高版本
 - x64 环境
 - 支持 DirectShow 的摄像头（使用摄像头功能时）
 - Media Foundation（Windows 7 及以上默认包含；Windows N 版需安装 Media Feature Pack，用于视频播放和相应的解码器）
@@ -33,10 +33,10 @@ dotnet build .\MediaShow.sln -c Release
 构建完成后运行：
 
 ```powershell
-.\bin\Release\net472\MediaShow.exe
+.\bin\Release\net48\MediaShow.exe
 ```
 
-也可以在 Visual Studio 中打开 `MediaShow.sln` 并生成 Release 配置。目标电脑需要安装 .NET Framework 4.7.2 或更高版本；该框架不会随程序打包。
+也可以在 Visual Studio 中打开 `MediaShow.sln` 并生成 Release 配置。目标电脑需要安装 .NET Framework 4.8 或更高版本；该框架不会随程序打包。
 
 程序使用 EXE 所在目录的 `config.json`。如果文件不存在，首次启动时会生成默认配置。发布时如需保留已有设置，请将对应的 `config.json` 放在 EXE 同目录。
 
@@ -271,7 +271,7 @@ Release 构建通过 Costura.Fody 将第三方托管依赖嵌入 EXE；构建目
 
 ## 技术栈
 
-- WPF / .NET Framework 4.7.2
+- WPF / .NET Framework 4.8
 - AForge.Video.DirectShow：摄像头发现与捕获
 - Media Foundation（`mfreadwrite.dll`）：本地视频/音频解码，不依赖 Windows Media Player
 - WPF 属性动画：图片切换特效（淡入淡出 / 滑动 / 缩放 / 旋转）
